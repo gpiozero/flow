@@ -22,12 +22,14 @@ import '@xyflow/react/dist/style.css';
 import { ConfigPanel } from './components/ConfigPanel';
 import { DeviceNode } from './components/DeviceNode';
 import { DRAG_MIME, Sidebar } from './components/Sidebar';
+import { WireEdge } from './components/WireEdge';
 import { SPECS, defaultParams, defaultState } from './catalog';
 import { computeValues } from './simulation';
 import { FlowContext } from './store';
 import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
 
 const nodeTypes = { device: DeviceNode };
+const edgeTypes = { wire: WireEdge };
 
 function Editor() {
   const [nodes, setNodes, onNodesChange] = useNodesState<DeviceFlowNode>([]);
@@ -68,7 +70,9 @@ function Editor() {
     (conn: Connection) => {
       const target = nodes.find((n) => n.id === conn.target);
       const multiInput = target ? SPECS[target.data.kind].multiInput : false;
-      setEdges((eds) => addEdge(conn, multiInput ? eds : eds.filter((e) => e.target !== conn.target)));
+      setEdges((eds) =>
+        addEdge({ ...conn, type: 'wire' }, multiInput ? eds : eds.filter((e) => e.target !== conn.target)),
+      );
     },
     [nodes, setEdges],
   );
@@ -123,6 +127,13 @@ function Editor() {
     setSelectedId(selected.length === 1 ? selected[0].id : null);
   }, []);
 
+  const onEdgeDoubleClick = useCallback(
+    (_: unknown, edge: Edge) => {
+      setEdges((eds) => eds.filter((e) => e.id !== edge.id));
+    },
+    [setEdges],
+  );
+
   // Wires light up while a value is flowing across them.
   const styledEdges = useMemo(
     () =>
@@ -156,13 +167,14 @@ function Editor() {
               nodes={nodes}
               edges={styledEdges}
               nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               isValidConnection={isValidConnection}
               onSelectionChange={onSelectionChange}
+              onEdgeDoubleClick={onEdgeDoubleClick}
               deleteKeyCode={['Backspace', 'Delete']}
-              fitView
             >
               <Background gap={16} />
               <Controls />

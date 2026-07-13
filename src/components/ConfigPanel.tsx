@@ -12,8 +12,8 @@ export function ConfigPanel({ node, onChangeParam }: Props) {
       <aside className="config-panel">
         <p className="config-empty">Select a node to configure it.</p>
         <p className="config-hint">
-          Wires feed one device's values into another's source. Delete/Backspace removes selected
-          nodes and wires.
+          Wires feed one device's values into another's source. Click a wire and hit its × (or
+          double-click the wire) to remove it. Delete/Backspace removes selected nodes and wires.
         </p>
       </aside>
     );
