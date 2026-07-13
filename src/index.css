@@ -190,6 +190,8 @@ body {
   border: 1px solid #9ca3af;
   border-radius: 999px;
   padding: 4px 14px;
+  min-width: 72px;
+  text-align: center;
   background: #e5e7eb;
   cursor: pointer;
   font-size: 11px;

@@ -6,6 +6,7 @@ around the [source/values](https://gpiozero.readthedocs.io/en/stable/source_valu
 Drag components from the sidebar onto the canvas, configure their init params in the right-hand
 panel, and wire them together. Values propagate live through the wires in the browser: press a
 Button and connected LEDs light up; drag a potentiometer and a PWMLED's brightness follows.
+Clicking a Button latches it on until the next click; press and hold for a momentary press.
 
 This is an MVP/proof of concept — nothing here touches real GPIO pins or talks to Python.
 

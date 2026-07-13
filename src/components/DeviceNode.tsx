@@ -1,13 +1,35 @@
+import { useRef } from 'react';
+import type { PointerEvent } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { SPECS } from '../catalog';
 import { useFlow } from '../store';
 import type { DeviceFlowNode } from '../types';
 
+// Pointer-downs shorter than this toggle the button; longer ones act
+// as a momentary hold that releases on pointer-up.
+const TAP_MS = 300;
+
 export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<DeviceFlowNode>) {
   const spec = SPECS[data.kind];
   const { values, updateNodeState } = useFlow();
   const value = values[id] ?? 0;
+  const pressInfo = useRef<{ wasPressed: boolean; at: number } | null>(null);
+
+  const onButtonDown = (e: PointerEvent<HTMLButtonElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    pressInfo.current = { wasPressed: Boolean(data.state.pressed), at: performance.now() };
+    updateNodeState(id, { pressed: true });
+  };
+
+  const onButtonUp = () => {
+    const info = pressInfo.current;
+    pressInfo.current = null;
+    // A quick tap on an unpressed button leaves it latched on;
+    // anything else (tap while latched, or a long hold) releases.
+    const latching = info && !info.wasPressed && performance.now() - info.at < TAP_MS;
+    if (!latching) updateNodeState(id, { pressed: false });
+  };
 
   const body = () => {
     switch (data.kind) {
@@ -15,11 +37,15 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         return (
           <button
             className={`push-button nodrag${data.state.pressed ? ' pressed' : ''}`}
-            onPointerDown={() => updateNodeState(id, { pressed: true })}
-            onPointerUp={() => updateNodeState(id, { pressed: false })}
-            onPointerLeave={() => updateNodeState(id, { pressed: false })}
+            title="Click to toggle; hold for a momentary press"
+            onPointerDown={onButtonDown}
+            onPointerUp={onButtonUp}
+            onPointerCancel={() => {
+              pressInfo.current = null;
+              updateNodeState(id, { pressed: false });
+            }}
           >
-            press
+            {data.state.pressed ? 'release' : 'press'}
           </button>
         );
       case 'pot':
