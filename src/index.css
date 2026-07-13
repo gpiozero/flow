@@ -306,12 +306,14 @@ body {
   font-family: ui-monospace, 'Cascadia Mono', monospace;
 }
 
-.config-field input[type='number'] {
+.config-field input[type='number'],
+.config-field select {
   width: 90px;
   padding: 3px 6px;
   border: 1px solid var(--c-border);
   border-radius: 4px;
   font-family: inherit;
+  background: #fff;
 }
 
 .config-code {

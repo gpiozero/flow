@@ -101,6 +101,19 @@ export const SECTIONS: { id: Section; title: string; kinds: NodeKind[] }[] = [
   { id: 'tools', title: 'Tools', kinds: ['negated', 'all_values', 'scaled'] },
 ];
 
+/** All usable GPIO pins, in display order */
+export const GPIO_PINS = Array.from({ length: 28 }, (_, i) => i);
+
+/** Assignment order for new devices: 4-27 first, 0-3 as a last resort */
+export const PIN_ASSIGN_ORDER = [...GPIO_PINS.slice(4), 0, 1, 2, 3];
+
+export function nextFreePin(usedPins: ReadonlySet<number>): number | null {
+  for (const pin of PIN_ASSIGN_ORDER) {
+    if (!usedPins.has(pin)) return pin;
+  }
+  return null;
+}
+
 export function defaultParams(kind: NodeKind): Record<string, ParamValue> {
   return Object.fromEntries(SPECS[kind].params.map((p) => [p.name, p.default]));
 }

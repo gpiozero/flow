@@ -23,13 +23,22 @@ import { ConfigPanel } from './components/ConfigPanel';
 import { DeviceNode } from './components/DeviceNode';
 import { DRAG_MIME, Sidebar } from './components/Sidebar';
 import { WireEdge } from './components/WireEdge';
-import { SPECS, defaultParams, defaultState } from './catalog';
+import { SPECS, defaultParams, defaultState, nextFreePin } from './catalog';
 import { computeValues } from './simulation';
 import { FlowContext } from './store';
 import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
 
 const nodeTypes = { device: DeviceNode };
 const edgeTypes = { wire: WireEdge };
+
+function pinsInUse(nodes: DeviceFlowNode[]): Set<number> {
+  const pins = new Set<number>();
+  for (const n of nodes) {
+    const pin = n.data.params.pin;
+    if (typeof pin === 'number') pins.add(pin);
+  }
+  return pins;
+}
 
 function Editor() {
   const [nodes, setNodes, onNodesChange] = useNodesState<DeviceFlowNode>([]);
@@ -112,15 +121,21 @@ function Editor() {
       e.preventDefault();
       const kind = e.dataTransfer.getData(DRAG_MIME) as NodeKind | '';
       if (!kind || !(kind in SPECS)) return;
+      const params = defaultParams(kind);
+      if ('pin' in params) {
+        const pin = nextFreePin(pinsInUse(nodes));
+        if (pin === null) return; // every GPIO pin is taken
+        params.pin = pin;
+      }
       const node: DeviceFlowNode = {
         id: `${kind}-${idCounter.current++}`,
         type: 'device',
         position: screenToFlowPosition({ x: e.clientX, y: e.clientY }),
-        data: { kind, params: defaultParams(kind), state: defaultState(kind) },
+        data: { kind, params, state: defaultState(kind) },
       };
       setNodes((ns) => [...ns, node]);
     },
-    [screenToFlowPosition, setNodes],
+    [nodes, screenToFlowPosition, setNodes],
   );
 
   const onSelectionChange = useCallback(({ nodes: selected }: OnSelectionChangeParams) => {
@@ -153,6 +168,13 @@ function Editor() {
     [nodes, selectedId],
   );
 
+  // Pins used by every node except the selected one, so the config
+  // panel can offer only free pins (plus the node's current pin).
+  const takenPins = useMemo(
+    () => pinsInUse(nodes.filter((n) => n.id !== selectedId)),
+    [nodes, selectedId],
+  );
+
   return (
     <FlowContext.Provider value={flowContext}>
       <div className="app">
@@ -181,7 +203,7 @@ function Editor() {
               <MiniMap />
             </ReactFlow>
           </div>
-          <ConfigPanel node={selectedNode} onChangeParam={updateNodeParam} />
+          <ConfigPanel node={selectedNode} takenPins={takenPins} onChangeParam={updateNodeParam} />
         </div>
       </div>
     </FlowContext.Provider>

@@ -1,12 +1,14 @@
-import { SPECS } from '../catalog';
+import { GPIO_PINS, SPECS } from '../catalog';
 import type { DeviceFlowNode, ParamValue } from '../types';
 
 interface Props {
   node: DeviceFlowNode | null;
+  /** pins used by other nodes; shown disabled in the pin dropdown */
+  takenPins: ReadonlySet<number>;
   onChangeParam: (id: string, name: string, value: ParamValue) => void;
 }
 
-export function ConfigPanel({ node, onChangeParam }: Props) {
+export function ConfigPanel({ node, takenPins, onChangeParam }: Props) {
   if (!node) {
     return (
       <aside className="config-panel">
@@ -32,7 +34,19 @@ export function ConfigPanel({ node, onChangeParam }: Props) {
           return (
             <label key={p.name} className="config-field">
               <span>{p.label}</span>
-              {p.type === 'bool' ? (
+              {p.name === 'pin' ? (
+                <select
+                  value={Number(value)}
+                  onChange={(e) => onChangeParam(node.id, p.name, Number(e.target.value))}
+                >
+                  {GPIO_PINS.map((pin) => (
+                    <option key={pin} value={pin} disabled={takenPins.has(pin)}>
+                      {pin}
+                      {takenPins.has(pin) ? ' (in use)' : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : p.type === 'bool' ? (
                 <input
                   type="checkbox"
                   checked={Boolean(value)}

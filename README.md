@@ -25,6 +25,9 @@ Built with Vite, React, TypeScript, and [React Flow](https://reactflow.dev/).
 - **Outputs**: LED, PWMLED
 - **Tools**: `negated`, `all_values`, `scaled`
 
+New GPIO devices are assigned the next free pin automatically (4-27 first, then 0-3 as a last
+resort), and the pin dropdown disables pins already in use, so two devices can never share a pin.
+
 Connection semantics mirror gpiozero: an output device's `source` accepts a single wire
 (reconnecting replaces it), combining tools like `all_values` accept many, output devices also
 expose their values so they can chain (LED → LED), and cycles are rejected.
