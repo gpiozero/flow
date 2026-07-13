@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Background,
   Controls,
@@ -24,7 +24,7 @@ import { DeviceNode } from './components/DeviceNode';
 import { DRAG_MIME, Sidebar } from './components/Sidebar';
 import { WireEdge } from './components/WireEdge';
 import { SPECS, defaultParams, defaultState, nextFreePin } from './catalog';
-import { computeValues } from './simulation';
+import { computeValues, createSimState } from './simulation';
 import { FlowContext } from './store';
 import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
 
@@ -47,7 +47,27 @@ function Editor() {
   const { screenToFlowPosition } = useReactFlow();
   const idCounter = useRef(1);
 
-  const values = useMemo(() => computeValues(nodes, edges), [nodes, edges]);
+  // The simulation clock runs at 10 steps/s (gpiozero source_delay=0.1
+  // equivalent) whenever a time-based node is on the canvas. Each tick
+  // advances artificial sources and stateful tools; recomputes caused
+  // by interaction reuse the current step without advancing.
+  const simRef = useRef(createSimState());
+  const lastTickRef = useRef(-1);
+  const [tick, setTick] = useState(0);
+  const hasTimeBased = useMemo(() => nodes.some((n) => SPECS[n.data.kind].timeBased), [nodes]);
+
+  useEffect(() => {
+    if (!hasTimeBased) return;
+    const interval = setInterval(() => setTick((t) => t + 1), 100);
+    return () => clearInterval(interval);
+  }, [hasTimeBased]);
+
+  const values = useMemo(() => {
+    const advance = tick !== lastTickRef.current;
+    lastTickRef.current = tick;
+    if (advance) simRef.current.step++;
+    return computeValues(nodes, edges, simRef.current, advance);
+  }, [nodes, edges, tick]);
 
   const updateNodeState = useCallback(
     (id: string, patch: Record<string, ParamValue>) => {

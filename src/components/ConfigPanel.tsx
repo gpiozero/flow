@@ -75,8 +75,14 @@ export function ConfigPanel({ node, takenPins, onChangeParam }: Props) {
 
 function preview(node: DeviceFlowNode): string {
   const spec = SPECS[node.data.kind];
-  if (spec.section === 'tools') return `${spec.label}(values)`;
   const params = node.data.params;
+  if (spec.section === 'tools' || spec.section === 'sources') {
+    const args = spec.hasInput ? ['values'] : [];
+    for (const p of spec.params) {
+      if (params[p.name] !== p.default) args.push(`${p.name}=${pyLiteral(params[p.name])}`);
+    }
+    return `${spec.label}(${args.join(', ')})`;
+  }
   const [first, ...rest] = spec.params;
   const args = [pyLiteral(params[first.name])];
   for (const p of rest) {

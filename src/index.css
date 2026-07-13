@@ -2,6 +2,7 @@
   --c-inputs: #2f9e44;
   --c-outputs: #e8590c;
   --c-tools: #7048e8;
+  --c-sources: #0c8599;
   --c-border: #d0d7de;
   --c-muted: #6b7280;
   --c-panel: #f6f8fa;
@@ -104,6 +105,10 @@ body {
   border-left-color: var(--c-tools);
 }
 
+.palette-item.section-sources {
+  border-left-color: var(--c-sources);
+}
+
 .palette-label {
   font-weight: 600;
   font-size: 13px;
@@ -143,6 +148,15 @@ body {
 
 .device-node.section-tools {
   border-top-color: var(--c-tools);
+}
+
+.device-node.section-sources {
+  border-top-color: var(--c-sources);
+}
+
+.section-sources .tool-fn {
+  color: var(--c-sources);
+  font-size: 18px;
 }
 
 .device-node.selected {

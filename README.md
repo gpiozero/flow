@@ -23,7 +23,14 @@ Built with Vite, React, TypeScript, and [React Flow](https://reactflow.dev/).
 
 - **Inputs**: Button, MCP3008 (potentiometer)
 - **Outputs**: LED, PWMLED
-- **Tools**: `negated`, `all_values`, `scaled`
+- **Tools**: `negated`, `inverted`, `all_values`, `any_values`, `summed`, `scaled`, `smoothed`
+- **Artificial sources**: `alternating_values`, `random_values`, `sin_values`, `cos_values`,
+  `ramping_values`
+
+While any time-based node (an artificial source, or `smoothed`) is on the canvas, a simulation
+clock ticks at 10 steps per second — the equivalent of `source_delay=0.1`. The wave sources
+default to `period=36` so one cycle takes ~3.6 s, matching gpiozero's defaults (`period=360` at
+`source_delay=0.01`).
 
 New GPIO devices are assigned the next free pin automatically (4-27 first, then 0-3 as a last
 resort), and the pin dropdown disables pins already in use, so two devices can never share a pin.

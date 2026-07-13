@@ -75,7 +75,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
           </div>
         );
       default:
-        return <div className="tool-fn">ƒ(x)</div>;
+        return <div className="tool-fn">{spec.section === 'sources' ? '∿' : 'ƒ(x)'}</div>;
     }
   };
 
@@ -88,7 +88,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
       case 'pot':
         return `channel ${data.params.channel}`;
       default:
-        return 'source tool';
+        return spec.section === 'sources' ? 'artificial source' : 'source tool';
     }
   };
 
