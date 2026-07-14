@@ -85,11 +85,17 @@ function preview(node: DeviceFlowNode): string {
   }
   const [first, ...rest] = spec.params;
   const args = [pyLiteral(params[first.name])];
+  const attrs: string[] = [];
   for (const p of rest) {
     const value = params[p.name];
-    if (value !== p.default) args.push(`${p.name}=${pyLiteral(value)}`);
+    if (value === p.default) continue;
+    if (p.attr) attrs.push(`${node.data.kind}.${p.name} = ${pyLiteral(value)}`);
+    else args.push(`${p.name}=${pyLiteral(value)}`);
   }
-  return `${spec.label}(${args.join(', ')})`;
+  const ctor = `${spec.label}(${args.join(', ')})`;
+  // attributes like source_delay are set after construction, so give
+  // the device a name when any of them appear
+  return attrs.length ? [`${node.data.kind} = ${ctor}`, ...attrs].join('\n') : ctor;
 }
 
 function pyLiteral(value: ParamValue): string {

@@ -340,3 +340,7 @@ body {
   margin-top: 14px;
   overflow-x: auto;
 }
+
+.config-code code {
+  white-space: pre;
+}

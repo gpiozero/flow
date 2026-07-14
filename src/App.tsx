@@ -24,7 +24,7 @@ import { DeviceNode } from './components/DeviceNode';
 import { DRAG_MIME, Sidebar } from './components/Sidebar';
 import { WireEdge } from './components/WireEdge';
 import { SPECS, defaultParams, defaultState, nextFreePin } from './catalog';
-import { computeValues, createSimState } from './simulation';
+import { TICK_SECONDS, computeValues, createSimState } from './simulation';
 import { FlowContext } from './store';
 import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
 
@@ -47,20 +47,29 @@ function Editor() {
   const { screenToFlowPosition } = useReactFlow();
   const idCounter = useRef(1);
 
-  // The simulation clock runs at 10 steps/s (gpiozero source_delay=0.1
-  // equivalent) whenever a time-based node is on the canvas. Each tick
-  // advances artificial sources and stateful tools; recomputes caused
-  // by interaction reuse the current step without advancing.
+  // The simulation clock runs at 10 steps/s whenever a time-based node
+  // is on the canvas, or a device's source_delay is long enough that
+  // its next source read must be scheduled. Each tick advances
+  // artificial sources and stateful tools; recomputes caused by
+  // interaction reuse the current step without advancing.
   const simRef = useRef(createSimState());
   const lastTickRef = useRef(-1);
   const [tick, setTick] = useState(0);
-  const hasTimeBased = useMemo(() => nodes.some((n) => SPECS[n.data.kind].timeBased), [nodes]);
+  const needsClock = useMemo(
+    () =>
+      nodes.some(
+        (n) =>
+          SPECS[n.data.kind].timeBased ||
+          Number(n.data.params.source_delay ?? 0) > TICK_SECONDS,
+      ),
+    [nodes],
+  );
 
   useEffect(() => {
-    if (!hasTimeBased) return;
-    const interval = setInterval(() => setTick((t) => t + 1), 100);
+    if (!needsClock) return;
+    const interval = setInterval(() => setTick((t) => t + 1), TICK_SECONDS * 1000);
     return () => clearInterval(interval);
-  }, [hasTimeBased]);
+  }, [needsClock]);
 
   const values = useMemo(() => {
     const advance = tick !== lastTickRef.current;

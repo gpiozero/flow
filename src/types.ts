@@ -30,6 +30,8 @@ export interface ParamSpec {
   min?: number;
   max?: number;
   step?: number;
+  /** set as an attribute after construction (e.g. source_delay), not a constructor arg */
+  attr?: boolean;
 }
 
 export interface NodeSpec {

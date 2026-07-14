@@ -40,6 +40,7 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
       { name: 'pin', label: 'pin', type: 'int', default: 17, min: 0, max: 27 },
       { name: 'active_high', label: 'active_high', type: 'bool', default: true },
       { name: 'initial_value', label: 'initial_value', type: 'bool', default: false },
+      { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
     ],
   },
   pwmled: {
@@ -55,6 +56,7 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
       { name: 'active_high', label: 'active_high', type: 'bool', default: true },
       { name: 'initial_value', label: 'initial_value', type: 'float', default: 0, min: 0, max: 1, step: 0.01 },
       { name: 'frequency', label: 'frequency', type: 'int', default: 100, min: 1, max: 10000 },
+      { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
     ],
   },
   negated: {

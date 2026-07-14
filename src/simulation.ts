@@ -11,10 +11,14 @@ export interface SimState {
   step: number;
   smoothQueues: Map<string, number[]>;
   randoms: Map<string, number>;
+  sourceSamples: Map<string, { step: number; value: number }>;
 }
 
+/** Seconds per simulation clock step */
+export const TICK_SECONDS = 0.1;
+
 export function createSimState(): SimState {
-  return { step: 0, smoothQueues: new Map(), randoms: new Map() };
+  return { step: 0, smoothQueues: new Map(), randoms: new Map(), sourceSamples: new Map() };
 }
 
 /**
@@ -75,6 +79,9 @@ export function computeValues(
   for (const id of [...sim.randoms.keys()]) {
     if (!byId.has(id)) sim.randoms.delete(id);
   }
+  for (const id of [...sim.sourceSamples.keys()]) {
+    if (!byId.has(id)) sim.sourceSamples.delete(id);
+  }
 
   return values;
 }
@@ -94,10 +101,10 @@ function nodeValue(
     case 'led':
       // LED.value is boolean: any truthy source value turns it on
       if (inputs.length === 0) return params.initial_value ? 1 : 0;
-      return inputs[0] > 0 ? 1 : 0;
+      return readSource(node, inputs[0], sim, advance) > 0 ? 1 : 0;
     case 'pwmled':
       if (inputs.length === 0) return clamp01(Number(params.initial_value ?? 0));
-      return clamp01(inputs[0]);
+      return clamp01(readSource(node, inputs[0], sim, advance));
     case 'negated':
       if (inputs.length === 0) return 0;
       return inputs[0] > 0 ? 0 : 1;
@@ -148,6 +155,24 @@ function nodeValue(
       return pos < period / 2 ? (pos * 2) / period : 2 - (pos * 2) / period;
     }
   }
+}
+
+/**
+ * Read a device's wired source respecting its source_delay. Delays up
+ * to one clock tick pass values straight through (the gpiozero default
+ * of 0.01s is faster than the simulation can resolve); longer delays
+ * hold the last sampled value until the delay has elapsed on the clock.
+ */
+function readSource(node: DeviceFlowNode, input: number, sim: SimState, advance: boolean): number {
+  const delaySteps = Math.round(Number(node.data.params.source_delay ?? 0) / TICK_SECONDS);
+  if (delaySteps <= 1) {
+    sim.sourceSamples.delete(node.id);
+    return input;
+  }
+  const last = sim.sourceSamples.get(node.id);
+  if (last && !(advance && sim.step - last.step >= delaySteps)) return last.value;
+  sim.sourceSamples.set(node.id, { step: sim.step, value: input });
+  return input;
 }
 
 function periodOf(value: ParamValue | undefined): number {
