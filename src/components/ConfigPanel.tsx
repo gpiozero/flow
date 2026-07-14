@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useReactFlow } from '@xyflow/react';
 import { GPIO_PINS, NAME_PATTERN, SPECS } from '../catalog';
 import type { DeviceFlowNode, ParamValue } from '../types';
 
@@ -13,13 +14,16 @@ interface Props {
 }
 
 export function ConfigPanel({ node, takenPins, takenNames, onChangeParam, onChangeName }: Props) {
+  const { deleteElements } = useReactFlow();
+
   if (!node) {
     return (
       <aside className="config-panel">
         <p className="config-empty">Select a node to configure it.</p>
         <p className="config-hint">
           Wires feed one device's values into another's source. Click a wire and hit its × (or
-          double-click the wire) to remove it. Delete/Backspace removes selected nodes and wires.
+          double-click the wire) to remove it. Nodes have an × too, or press Delete/Backspace to
+          remove whatever is selected.
         </p>
       </aside>
     );
@@ -81,6 +85,12 @@ export function ConfigPanel({ node, takenPins, takenNames, onChangeParam, onChan
       <div className="config-code">
         <code>{preview(node)}</code>
       </div>
+      <button
+        className="config-delete"
+        onClick={() => deleteElements({ nodes: [{ id: node.id }] })}
+      >
+        Delete node
+      </button>
     </aside>
   );
 }

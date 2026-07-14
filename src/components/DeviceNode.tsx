@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import type { PointerEvent } from 'react';
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, useReactFlow } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { SPECS } from '../catalog';
 import { useFlow } from '../store';
@@ -12,6 +12,7 @@ const TAP_MS = 300;
 
 export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<DeviceFlowNode>) {
   const spec = SPECS[data.kind];
+  const { deleteElements } = useReactFlow();
   const { values, updateNodeState } = useFlow();
   const value = values[id] ?? 0;
   const pressInfo = useRef<{ wasPressed: boolean; at: number } | null>(null);
@@ -94,6 +95,16 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
 
   return (
     <div className={`device-node section-${spec.section}${selected ? ' selected' : ''}`}>
+      <button
+        className="node-delete nodrag nopan"
+        title="Delete node"
+        onClick={(e) => {
+          e.stopPropagation();
+          deleteElements({ nodes: [{ id }] });
+        }}
+      >
+        ×
+      </button>
       {spec.hasInput && (
         <Handle id="in" type="target" position={Position.Left} isConnectable={isConnectable} />
       )}

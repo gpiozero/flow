@@ -129,6 +129,7 @@ body {
 /* Nodes */
 
 .device-node {
+  position: relative;
   background: #fff;
   border: 1px solid var(--c-border);
   border-top-width: 3px;
@@ -279,6 +280,38 @@ body {
   color: #fff;
 }
 
+/* Node delete button: appears in the top-right corner on hover/select */
+
+.node-delete {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  z-index: 1;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid #dc2626;
+  background: #fff;
+  color: #dc2626;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.device-node:hover .node-delete,
+.device-node.selected .node-delete {
+  display: flex;
+}
+
+.node-delete:hover {
+  background: #dc2626;
+  color: #fff;
+}
+
 /* Config panel */
 
 .config-panel {
@@ -363,4 +396,22 @@ body {
   flex-basis: 100%;
   color: #dc2626;
   font-size: 11px;
+}
+
+.config-delete {
+  margin-top: 12px;
+  width: 100%;
+  padding: 6px;
+  border: 1px solid #dc2626;
+  border-radius: 6px;
+  background: #fff;
+  color: #dc2626;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.config-delete:hover {
+  background: #dc2626;
+  color: #fff;
 }
