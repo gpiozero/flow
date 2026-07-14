@@ -1,14 +1,18 @@
-import { GPIO_PINS, SPECS } from '../catalog';
+import { useState } from 'react';
+import { GPIO_PINS, NAME_PATTERN, SPECS } from '../catalog';
 import type { DeviceFlowNode, ParamValue } from '../types';
 
 interface Props {
   node: DeviceFlowNode | null;
   /** pins used by other nodes; shown disabled in the pin dropdown */
   takenPins: ReadonlySet<number>;
+  /** names used by other nodes; duplicates are rejected */
+  takenNames: ReadonlySet<string>;
   onChangeParam: (id: string, name: string, value: ParamValue) => void;
+  onChangeName: (id: string, name: string) => void;
 }
 
-export function ConfigPanel({ node, takenPins, onChangeParam }: Props) {
+export function ConfigPanel({ node, takenPins, takenNames, onChangeParam, onChangeName }: Props) {
   if (!node) {
     return (
       <aside className="config-panel">
@@ -26,6 +30,14 @@ export function ConfigPanel({ node, takenPins, onChangeParam }: Props) {
     <aside className="config-panel">
       <h2>{spec.label}</h2>
       <p className="config-desc">{spec.description}</p>
+      {typeof node.data.name === 'string' && (
+        <NameField
+          key={node.id}
+          node={node}
+          takenNames={takenNames}
+          onChangeName={onChangeName}
+        />
+      )}
       {spec.params.length === 0 ? (
         <p className="config-empty">No parameters.</p>
       ) : (
@@ -73,6 +85,48 @@ export function ConfigPanel({ node, takenPins, onChangeParam }: Props) {
   );
 }
 
+// The name doubles as the Python variable in the code preview, so it
+// only commits while valid: lowercase letters, digits and underscores,
+// no leading digit, and unique among the other nodes. The draft keeps
+// what was typed so the user can edit through a transient collision.
+function NameField({
+  node,
+  takenNames,
+  onChangeName,
+}: {
+  node: DeviceFlowNode;
+  takenNames: ReadonlySet<string>;
+  onChangeName: (id: string, name: string) => void;
+}) {
+  const [draft, setDraft] = useState(node.data.name ?? '');
+  const [error, setError] = useState<string | null>(null);
+
+  const onChange = (raw: string) => {
+    const value = raw.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    setDraft(value);
+    if (!value) setError('a name is required');
+    else if (!NAME_PATTERN.test(value)) setError('names cannot start with a digit');
+    else if (takenNames.has(value)) setError('name already in use');
+    else {
+      setError(null);
+      onChangeName(node.id, value);
+    }
+  };
+
+  return (
+    <label className="config-field">
+      <span>name</span>
+      <input
+        type="text"
+        value={draft}
+        onChange={(e) => onChange(e.target.value)}
+        aria-invalid={error !== null}
+      />
+      {error && <span className="config-error">{error}</span>}
+    </label>
+  );
+}
+
 function preview(node: DeviceFlowNode): string {
   const spec = SPECS[node.data.kind];
   const params = node.data.params;
@@ -83,19 +137,18 @@ function preview(node: DeviceFlowNode): string {
     }
     return `${spec.label}(${args.join(', ')})`;
   }
+  const varName = node.data.name ?? node.data.kind;
   const [first, ...rest] = spec.params;
   const args = [pyLiteral(params[first.name])];
   const attrs: string[] = [];
   for (const p of rest) {
     const value = params[p.name];
     if (value === p.default) continue;
-    if (p.attr) attrs.push(`${node.data.kind}.${p.name} = ${pyLiteral(value)}`);
+    // attributes like source_delay are set after construction
+    if (p.attr) attrs.push(`${varName}.${p.name} = ${pyLiteral(value)}`);
     else args.push(`${p.name}=${pyLiteral(value)}`);
   }
-  const ctor = `${spec.label}(${args.join(', ')})`;
-  // attributes like source_delay are set after construction, so give
-  // the device a name when any of them appear
-  return attrs.length ? [`${node.data.kind} = ${ctor}`, ...attrs].join('\n') : ctor;
+  return [`${varName} = ${spec.label}(${args.join(', ')})`, ...attrs].join('\n');
 }
 
 function pyLiteral(value: ParamValue): string {

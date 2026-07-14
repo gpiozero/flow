@@ -54,6 +54,8 @@ export interface NodeSpec {
 
 export interface DeviceData extends Record<string, unknown> {
   kind: NodeKind;
+  /** unique variable name; devices (inputs/outputs) only, tools are anonymous */
+  name?: string;
   params: Record<string, ParamValue>;
   state: Record<string, ParamValue>;
 }

@@ -23,13 +23,21 @@ import { ConfigPanel } from './components/ConfigPanel';
 import { DeviceNode } from './components/DeviceNode';
 import { DRAG_MIME, Sidebar } from './components/Sidebar';
 import { WireEdge } from './components/WireEdge';
-import { SPECS, defaultParams, defaultState, nextFreePin } from './catalog';
+import { SPECS, defaultParams, defaultState, isDevice, nextDeviceName, nextFreePin } from './catalog';
 import { TICK_SECONDS, computeValues, createSimState } from './simulation';
 import { FlowContext } from './store';
 import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
 
 const nodeTypes = { device: DeviceNode };
 const edgeTypes = { wire: WireEdge };
+
+function namesInUse(nodes: DeviceFlowNode[]): Set<string> {
+  const names = new Set<string>();
+  for (const n of nodes) {
+    if (typeof n.data.name === 'string') names.add(n.data.name);
+  }
+  return names;
+}
 
 function pinsInUse(nodes: DeviceFlowNode[]): Set<number> {
   const pins = new Set<number>();
@@ -84,6 +92,15 @@ function Editor() {
         ns.map((n) =>
           n.id === id ? { ...n, data: { ...n.data, state: { ...n.data.state, ...patch } } } : n,
         ),
+      );
+    },
+    [setNodes],
+  );
+
+  const updateNodeName = useCallback(
+    (id: string, name: string) => {
+      setNodes((ns) =>
+        ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, name } } : n)),
       );
     },
     [setNodes],
@@ -160,7 +177,12 @@ function Editor() {
         id: `${kind}-${idCounter.current++}`,
         type: 'device',
         position: screenToFlowPosition({ x: e.clientX, y: e.clientY }),
-        data: { kind, params, state: defaultState(kind) },
+        data: {
+          kind,
+          ...(isDevice(kind) ? { name: nextDeviceName(kind, namesInUse(nodes)) } : {}),
+          params,
+          state: defaultState(kind),
+        },
       };
       setNodes((ns) => [...ns, node]);
     },
@@ -197,10 +219,14 @@ function Editor() {
     [nodes, selectedId],
   );
 
-  // Pins used by every node except the selected one, so the config
-  // panel can offer only free pins (plus the node's current pin).
+  // Pins and names used by every node except the selected one, so the
+  // config panel can offer only free pins and reject duplicate names.
   const takenPins = useMemo(
     () => pinsInUse(nodes.filter((n) => n.id !== selectedId)),
+    [nodes, selectedId],
+  );
+  const takenNames = useMemo(
+    () => namesInUse(nodes.filter((n) => n.id !== selectedId)),
     [nodes, selectedId],
   );
 
@@ -232,7 +258,13 @@ function Editor() {
               <MiniMap />
             </ReactFlow>
           </div>
-          <ConfigPanel node={selectedNode} takenPins={takenPins} onChangeParam={updateNodeParam} />
+          <ConfigPanel
+            node={selectedNode}
+            takenPins={takenPins}
+            takenNames={takenNames}
+            onChangeParam={updateNodeParam}
+            onChangeName={updateNodeName}
+          />
         </div>
       </div>
     </FlowContext.Provider>

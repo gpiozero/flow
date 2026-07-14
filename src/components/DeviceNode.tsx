@@ -98,7 +98,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         <Handle id="in" type="target" position={Position.Left} isConnectable={isConnectable} />
       )}
       <div className="node-header">
-        <span className="node-title">{spec.label}</span>
+        <span className="node-title">{data.name ?? spec.label}</span>
         <span className="node-value">
           {spec.valueKind === 'float' ? value.toFixed(2) : value > 0 ? '1' : '0'}
         </span>

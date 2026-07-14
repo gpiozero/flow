@@ -226,6 +226,22 @@ export function nextFreePin(usedPins: ReadonlySet<number>): number | null {
   return null;
 }
 
+/** Valid device name: lowercase letters, digits and underscores, not starting with a digit */
+export const NAME_PATTERN = /^[a-z_][a-z0-9_]*$/;
+
+export function isDevice(kind: NodeKind): boolean {
+  const section = SPECS[kind].section;
+  return section === 'inputs' || section === 'outputs';
+}
+
+export function nextDeviceName(kind: NodeKind, usedNames: ReadonlySet<string>): string {
+  if (!usedNames.has(kind)) return kind;
+  for (let i = 2; ; i++) {
+    const name = `${kind}${i}`;
+    if (!usedNames.has(name)) return name;
+  }
+}
+
 export function defaultParams(kind: NodeKind): Record<string, ParamValue> {
   return Object.fromEntries(SPECS[kind].params.map((p) => [p.name, p.default]));
 }

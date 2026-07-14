@@ -312,12 +312,26 @@ body {
 
 .config-field {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
   font-size: 13px;
   font-family: ui-monospace, 'Cascadia Mono', monospace;
+}
+
+.config-field input[type='text'] {
+  width: 110px;
+  padding: 3px 6px;
+  border: 1px solid var(--c-border);
+  border-radius: 4px;
+  font-family: inherit;
+  background: #fff;
+}
+
+.config-field input[aria-invalid='true'] {
+  border-color: #dc2626;
 }
 
 .config-field input[type='number'],
@@ -343,4 +357,10 @@ body {
 
 .config-code code {
   white-space: pre;
+}
+
+.config-error {
+  flex-basis: 100%;
+  color: #dc2626;
+  font-size: 11px;
 }
