@@ -24,7 +24,7 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     hasInput: false,
     hasOutput: true,
     params: [
-      { name: 'channel', label: 'channel', type: 'int', default: 0, min: 0, max: 7 },
+      { name: 'channel', label: 'channel', type: 'channel', default: 0 },
     ],
     initialState: { level: 0.5 },
   },
@@ -309,6 +309,17 @@ export function nextFreePin(usedPins: ReadonlySet<number>): number | null {
   }
   return null;
 }
+
+/** MCP3008 channels, in display and assignment order */
+export const MCP_CHANNELS = Array.from({ length: 8 }, (_, i) => i);
+
+export function nextFreeChannel(usedChannels: ReadonlySet<number>): number | null {
+  for (const channel of MCP_CHANNELS) {
+    if (!usedChannels.has(channel)) return channel;
+  }
+  return null;
+}
+
 /** Valid device name: lowercase letters, digits and underscores, not starting with a digit */
 export const NAME_PATTERN = /^[a-z_][a-z0-9_]*$/;
 

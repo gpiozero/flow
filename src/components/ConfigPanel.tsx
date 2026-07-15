@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { GPIO_PINS, NAME_PATTERN, SPECS, requiredPinParams } from '../catalog';
+import { GPIO_PINS, MCP_CHANNELS, NAME_PATTERN, SPECS, requiredPinParams } from '../catalog';
 import type { DeviceFlowNode, ParamValue } from '../types';
 
 interface Props {
@@ -9,11 +9,20 @@ interface Props {
   takenPins: ReadonlySet<number>;
   /** names used by other nodes; duplicates are rejected */
   takenNames: ReadonlySet<string>;
+  /** MCP3008 channels used by other nodes; shown disabled in channel dropdowns */
+  takenChannels: ReadonlySet<number>;
   onChangeParam: (id: string, name: string, value: ParamValue) => void;
   onChangeName: (id: string, name: string) => void;
 }
 
-export function ConfigPanel({ node, takenPins, takenNames, onChangeParam, onChangeName }: Props) {
+export function ConfigPanel({
+  node,
+  takenPins,
+  takenNames,
+  takenChannels,
+  onChangeParam,
+  onChangeName,
+}: Props) {
   const { deleteElements } = useReactFlow();
 
   if (!node) {
@@ -76,6 +85,18 @@ export function ConfigPanel({ node, takenPins, takenNames, onChangeParam, onChan
               <span>{p.label}</span>
               {p.type === 'pin' ? (
                 renderPinSelect(p.name)
+              ) : p.type === 'channel' ? (
+                <select
+                  value={Number(value)}
+                  onChange={(e) => onChangeParam(node.id, p.name, Number(e.target.value))}
+                >
+                  {MCP_CHANNELS.map((channel) => (
+                    <option key={channel} value={channel} disabled={takenChannels.has(channel)}>
+                      {channel}
+                      {takenChannels.has(channel) ? ' (in use)' : ''}
+                    </option>
+                  ))}
+                </select>
               ) : p.type === 'bool' ? (
                 <input
                   type="checkbox"

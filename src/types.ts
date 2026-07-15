@@ -31,8 +31,11 @@ export type ParamValue = number | boolean;
 export interface ParamSpec {
   name: string;
   label: string;
-  /** 'pin' renders a GPIO pin dropdown and participates in unique pin assignment */
-  type: 'int' | 'float' | 'bool' | 'pin';
+  /**
+   * 'pin' renders a GPIO pin dropdown and participates in unique pin
+   * assignment; 'channel' does the same for MCP3008 channels 0-7
+   */
+  type: 'int' | 'float' | 'bool' | 'pin' | 'channel';
   default: ParamValue;
   min?: number;
   max?: number;

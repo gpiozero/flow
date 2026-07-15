@@ -29,6 +29,7 @@ import {
   defaultState,
   isDevice,
   nextDeviceName,
+  nextFreeChannel,
   nextFreePin,
   requiredPinParams,
 } from './catalog';
@@ -45,6 +46,18 @@ function namesInUse(nodes: DeviceFlowNode[]): Set<string> {
     if (typeof n.data.name === 'string') names.add(n.data.name);
   }
   return names;
+}
+
+function channelsInUse(nodes: DeviceFlowNode[]): Set<number> {
+  const channels = new Set<number>();
+  for (const n of nodes) {
+    for (const p of SPECS[n.data.kind].params) {
+      if (p.type !== 'channel') continue;
+      const channel = n.data.params[p.name];
+      if (typeof channel === 'number') channels.add(channel);
+    }
+  }
+  return channels;
 }
 
 function pinsInUse(nodes: DeviceFlowNode[]): Set<number> {
@@ -208,6 +221,14 @@ function Editor() {
         params[name] = pin;
         usedPins.add(pin);
       }
+      const usedChannels = channelsInUse(nodes);
+      for (const p of SPECS[kind].params) {
+        if (p.type !== 'channel') continue;
+        const channel = nextFreeChannel(usedChannels);
+        if (channel === null) return; // all 8 ADC channels are taken
+        params[p.name] = channel;
+        usedChannels.add(channel);
+      }
       const node: DeviceFlowNode = {
         id: `${kind}-${idCounter.current++}`,
         type: 'device',
@@ -264,6 +285,10 @@ function Editor() {
     () => namesInUse(nodes.filter((n) => n.id !== selectedId)),
     [nodes, selectedId],
   );
+  const takenChannels = useMemo(
+    () => channelsInUse(nodes.filter((n) => n.id !== selectedId)),
+    [nodes, selectedId],
+  );
 
   return (
     <FlowContext.Provider value={flowContext}>
@@ -297,6 +322,7 @@ function Editor() {
             node={selectedNode}
             takenPins={takenPins}
             takenNames={takenNames}
+            takenChannels={takenChannels}
             onChangeParam={updateNodeParam}
             onChangeName={updateNodeName}
           />
