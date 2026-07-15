@@ -241,6 +241,109 @@ body {
   border: 1px solid #dc2626;
 }
 
+.buzzer {
+  font-size: 20px;
+  line-height: 1;
+  color: #94a3b8;
+}
+
+.buzzer.buzzing {
+  color: #f59e0b;
+  animation: buzz 0.15s linear infinite;
+}
+
+@keyframes buzz {
+  0%,
+  100% {
+    transform: translateX(-1px) rotate(-6deg);
+  }
+  50% {
+    transform: translateX(1px) rotate(6deg);
+  }
+}
+
+/* Servo: a needle pivoting at its base, -90deg (value -1) to +90deg (value 1) */
+
+.servo-gauge {
+  position: relative;
+  width: 64px;
+  height: 32px;
+  overflow: hidden;
+}
+
+.servo-arm {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  width: 2px;
+  height: 26px;
+  margin-left: -1px;
+  background: #334155;
+  border-radius: 1px;
+  transform-origin: bottom center;
+  transition: transform 0.1s;
+}
+
+.servo-hub {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: 50%;
+  background: #64748b;
+}
+
+/* Motor: a bar filling right of centre for forward, left for backward */
+
+.motor-track {
+  position: relative;
+  width: 90px;
+  height: 10px;
+  background: #e2e8f0;
+  border: 1px solid var(--c-border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.motor-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: #2f9e44;
+  transition: width 0.1s;
+}
+
+.motor-centre {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: #94a3b8;
+}
+
+.bar-graph {
+  display: flex;
+  gap: 3px;
+}
+
+.bar-led {
+  width: 9px;
+  height: 18px;
+  border-radius: 2px;
+  background: #e2e8f0;
+  border: 1px solid var(--c-border);
+  transition: background 0.1s;
+}
+
+.bar-led.on {
+  background: #ef4444;
+  border-color: #dc2626;
+  box-shadow: 0 0 4px rgba(239, 68, 68, 0.7);
+}
+
 .tool-fn {
   font-family: ui-monospace, 'Cascadia Mono', monospace;
   font-size: 14px;

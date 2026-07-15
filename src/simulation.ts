@@ -97,27 +97,38 @@ function nodeValue(
     case 'button':
       return state.pressed ? 1 : 0;
     case 'pot':
-      return clamp01(Number(state.level ?? 0));
+    case 'lightsensor':
+      return clamp(Number(state.level ?? 0), 0, 1);
+    case 'motionsensor':
+      return state.motion ? 1 : 0;
     case 'led':
-      // LED.value is boolean: any truthy source value turns it on
+    case 'buzzer':
+      // value is boolean: any truthy (nonzero) source value turns it on
       if (inputs.length === 0) return params.initial_value ? 1 : 0;
-      return readSource(node, inputs[0], sim, advance) > 0 ? 1 : 0;
+      return readSource(node, inputs[0], sim, advance) !== 0 ? 1 : 0;
     case 'pwmled':
-      if (inputs.length === 0) return clamp01(Number(params.initial_value ?? 0));
-      return clamp01(readSource(node, inputs[0], sim, advance));
+      if (inputs.length === 0) return clamp(Number(params.initial_value ?? 0), 0, 1);
+      return clamp(readSource(node, inputs[0], sim, advance), 0, 1);
+    case 'servo':
+    case 'ledbargraph':
+      if (inputs.length === 0) return clamp(Number(params.initial_value ?? 0), -1, 1);
+      return clamp(readSource(node, inputs[0], sim, advance), -1, 1);
+    case 'motor':
+      if (inputs.length === 0) return 0;
+      return clamp(readSource(node, inputs[0], sim, advance), -1, 1);
     case 'negated':
       if (inputs.length === 0) return 0;
-      return inputs[0] > 0 ? 0 : 1;
+      return inputs[0] !== 0 ? 0 : 1;
     case 'inverted': {
       if (inputs.length === 0) return 0;
       return Number(params.input_min) + Number(params.input_max) - inputs[0];
     }
     case 'all_values':
       if (inputs.length === 0) return 0;
-      return inputs.every((v) => v > 0) ? 1 : 0;
+      return inputs.every((v) => v !== 0) ? 1 : 0;
     case 'any_values':
       if (inputs.length === 0) return 0;
-      return inputs.some((v) => v > 0) ? 1 : 0;
+      return inputs.some((v) => v !== 0) ? 1 : 0;
     case 'summed':
       return inputs.reduce((a, b) => a + b, 0);
     case 'scaled': {
@@ -180,6 +191,6 @@ function periodOf(value: ParamValue | undefined): number {
   return period >= 2 ? period : 2;
 }
 
-function clamp01(v: number): number {
-  return Math.min(1, Math.max(0, v));
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, v));
 }

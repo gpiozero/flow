@@ -5,8 +5,14 @@ export type Section = 'inputs' | 'outputs' | 'tools' | 'sources';
 export type NodeKind =
   | 'button'
   | 'pot'
+  | 'lightsensor'
+  | 'motionsensor'
   | 'led'
   | 'pwmled'
+  | 'buzzer'
+  | 'servo'
+  | 'motor'
+  | 'ledbargraph'
   | 'negated'
   | 'inverted'
   | 'all_values'
@@ -25,13 +31,16 @@ export type ParamValue = number | boolean;
 export interface ParamSpec {
   name: string;
   label: string;
-  type: 'int' | 'float' | 'bool';
+  /** 'pin' renders a GPIO pin dropdown and participates in unique pin assignment */
+  type: 'int' | 'float' | 'bool' | 'pin';
   default: ParamValue;
   min?: number;
   max?: number;
   step?: number;
   /** set as an attribute after construction (e.g. source_delay), not a constructor arg */
   attr?: boolean;
+  /** simulation-only param with no gpiozero equivalent; left out of the code preview */
+  omit?: boolean;
 }
 
 export interface NodeSpec {

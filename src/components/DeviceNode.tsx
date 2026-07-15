@@ -50,6 +50,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
           </button>
         );
       case 'pot':
+      case 'lightsensor':
         return (
           <input
             type="range"
@@ -60,6 +61,16 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
             value={Number(data.state.level ?? 0)}
             onChange={(e) => updateNodeState(id, { level: Number(e.target.value) })}
           />
+        );
+      case 'motionsensor':
+        return (
+          <button
+            className={`push-button nodrag${data.state.motion ? ' pressed' : ''}`}
+            title="Click to toggle motion"
+            onClick={() => updateNodeState(id, { motion: !data.state.motion })}
+          >
+            {data.state.motion ? 'motion' : 'still'}
+          </button>
         );
       case 'led':
         return <div className={`led-dot${value > 0 ? ' lit' : ''}`} />;
@@ -75,6 +86,42 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
             />
           </div>
         );
+      case 'buzzer':
+        return <div className={`buzzer${value !== 0 ? ' buzzing' : ''}`}>♪</div>;
+      case 'servo':
+        return (
+          <div className="servo-gauge">
+            <div className="servo-arm" style={{ transform: `rotate(${value * 90}deg)` }} />
+            <div className="servo-hub" />
+          </div>
+        );
+      case 'motor':
+        return (
+          <div className="motor-track">
+            <div
+              className="motor-fill"
+              style={
+                value >= 0
+                  ? { left: '50%', width: `${value * 50}%` }
+                  : { right: '50%', width: `${-value * 50}%` }
+              }
+            />
+            <div className="motor-centre" />
+          </div>
+        );
+      case 'ledbargraph': {
+        const leds = Math.max(1, Math.floor(Number(data.params.leds)) || 1);
+        const lit = Math.round(Math.abs(value) * leds);
+        // negative values fill from the far end, as in gpiozero
+        return (
+          <div className="bar-graph">
+            {Array.from({ length: leds }, (_, i) => {
+              const on = value < 0 ? i >= leds - lit : i < lit;
+              return <div key={i} className={`bar-led${on ? ' on' : ''}`} />;
+            })}
+          </div>
+        );
+      }
       default:
         return <div className="tool-fn">{spec.section === 'sources' ? '∿' : 'ƒ(x)'}</div>;
     }
@@ -85,7 +132,15 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
       case 'button':
       case 'led':
       case 'pwmled':
+      case 'buzzer':
+      case 'servo':
+      case 'lightsensor':
+      case 'motionsensor':
         return `pin ${data.params.pin}`;
+      case 'motor':
+        return `pins ${data.params.forward}/${data.params.backward}`;
+      case 'ledbargraph':
+        return `${data.params.leds} leds`;
       case 'pot':
         return `channel ${data.params.channel}`;
       default:

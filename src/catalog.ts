@@ -10,7 +10,7 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     hasInput: false,
     hasOutput: true,
     params: [
-      { name: 'pin', label: 'pin', type: 'int', default: 2, min: 0, max: 27 },
+      { name: 'pin', label: 'pin', type: 'pin', default: 2 },
       { name: 'pull_up', label: 'pull_up', type: 'bool', default: true },
     ],
     initialState: { pressed: false },
@@ -28,6 +28,28 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     ],
     initialState: { level: 0.5 },
   },
+  lightsensor: {
+    kind: 'lightsensor',
+    label: 'LightSensor',
+    section: 'inputs',
+    description: 'Light-dependent resistor',
+    valueKind: 'float',
+    hasInput: false,
+    hasOutput: true,
+    params: [{ name: 'pin', label: 'pin', type: 'pin', default: 9 }],
+    initialState: { level: 0.5 },
+  },
+  motionsensor: {
+    kind: 'motionsensor',
+    label: 'MotionSensor',
+    section: 'inputs',
+    description: 'PIR motion sensor',
+    valueKind: 'boolean',
+    hasInput: false,
+    hasOutput: true,
+    params: [{ name: 'pin', label: 'pin', type: 'pin', default: 10 }],
+    initialState: { motion: false },
+  },
   led: {
     kind: 'led',
     label: 'LED',
@@ -37,7 +59,7 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     hasInput: true,
     hasOutput: true,
     params: [
-      { name: 'pin', label: 'pin', type: 'int', default: 17, min: 0, max: 27 },
+      { name: 'pin', label: 'pin', type: 'pin', default: 17 },
       { name: 'active_high', label: 'active_high', type: 'bool', default: true },
       { name: 'initial_value', label: 'initial_value', type: 'bool', default: false },
       { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
@@ -52,10 +74,67 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     hasInput: true,
     hasOutput: true,
     params: [
-      { name: 'pin', label: 'pin', type: 'int', default: 18, min: 0, max: 27 },
+      { name: 'pin', label: 'pin', type: 'pin', default: 18 },
       { name: 'active_high', label: 'active_high', type: 'bool', default: true },
       { name: 'initial_value', label: 'initial_value', type: 'float', default: 0, min: 0, max: 1, step: 0.01 },
       { name: 'frequency', label: 'frequency', type: 'int', default: 100, min: 1, max: 10000 },
+      { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
+    ],
+  },
+  buzzer: {
+    kind: 'buzzer',
+    label: 'Buzzer',
+    section: 'outputs',
+    description: 'Active piezo buzzer',
+    valueKind: 'boolean',
+    hasInput: true,
+    hasOutput: true,
+    params: [
+      { name: 'pin', label: 'pin', type: 'pin', default: 11 },
+      { name: 'active_high', label: 'active_high', type: 'bool', default: true },
+      { name: 'initial_value', label: 'initial_value', type: 'bool', default: false },
+      { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
+    ],
+  },
+  servo: {
+    kind: 'servo',
+    label: 'Servo',
+    section: 'outputs',
+    description: 'Servo motor, positioned from -1 to 1',
+    valueKind: 'float',
+    hasInput: true,
+    hasOutput: true,
+    params: [
+      { name: 'pin', label: 'pin', type: 'pin', default: 12 },
+      { name: 'initial_value', label: 'initial_value', type: 'float', default: 0, min: -1, max: 1, step: 0.05 },
+      { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
+    ],
+  },
+  motor: {
+    kind: 'motor',
+    label: 'Motor',
+    section: 'outputs',
+    description: 'DC motor, speed from -1 (back) to 1 (forward)',
+    valueKind: 'float',
+    hasInput: true,
+    hasOutput: true,
+    params: [
+      { name: 'forward', label: 'forward', type: 'pin', default: 13 },
+      { name: 'backward', label: 'backward', type: 'pin', default: 19 },
+      { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
+    ],
+  },
+  ledbargraph: {
+    kind: 'ledbargraph',
+    label: 'LEDBarGraph',
+    section: 'outputs',
+    description: 'Row of LEDs displaying a value from -1 to 1',
+    valueKind: 'float',
+    hasInput: true,
+    hasOutput: true,
+    params: [
+      { name: 'leds', label: 'leds', type: 'int', default: 5, min: 1, max: 10, omit: true },
+      { name: 'initial_value', label: 'initial_value', type: 'float', default: 0, min: -1, max: 1, step: 0.05 },
       { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
     ],
   },
@@ -199,8 +278,12 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
 };
 
 export const SECTIONS: { id: Section; title: string; kinds: NodeKind[] }[] = [
-  { id: 'inputs', title: 'Inputs', kinds: ['button', 'pot'] },
-  { id: 'outputs', title: 'Outputs', kinds: ['led', 'pwmled'] },
+  { id: 'inputs', title: 'Inputs', kinds: ['button', 'pot', 'lightsensor', 'motionsensor'] },
+  {
+    id: 'outputs',
+    title: 'Outputs',
+    kinds: ['led', 'pwmled', 'buzzer', 'servo', 'motor', 'ledbargraph'],
+  },
   {
     id: 'tools',
     title: 'Tools',
@@ -225,7 +308,6 @@ export function nextFreePin(usedPins: ReadonlySet<number>): number | null {
   }
   return null;
 }
-
 /** Valid device name: lowercase letters, digits and underscores, not starting with a digit */
 export const NAME_PATTERN = /^[a-z_][a-z0-9_]*$/;
 

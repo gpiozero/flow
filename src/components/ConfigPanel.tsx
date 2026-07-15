@@ -47,18 +47,26 @@ export function ConfigPanel({ node, takenPins, takenNames, onChangeParam, onChan
       ) : (
         spec.params.map((p) => {
           const value = node.data.params[p.name];
+          // pins used by this node's other pin params (e.g. Motor's
+          // forward/backward must differ)
+          const siblingPins = new Set(
+            spec.params
+              .filter((q) => q.type === 'pin' && q.name !== p.name)
+              .map((q) => Number(node.data.params[q.name])),
+          );
+          const pinTaken = (pin: number) => takenPins.has(pin) || siblingPins.has(pin);
           return (
             <label key={p.name} className="config-field">
               <span>{p.label}</span>
-              {p.name === 'pin' ? (
+              {p.type === 'pin' ? (
                 <select
                   value={Number(value)}
                   onChange={(e) => onChangeParam(node.id, p.name, Number(e.target.value))}
                 >
                   {GPIO_PINS.map((pin) => (
-                    <option key={pin} value={pin} disabled={takenPins.has(pin)}>
+                    <option key={pin} value={pin} disabled={pinTaken(pin)}>
                       {pin}
-                      {takenPins.has(pin) ? ' (in use)' : ''}
+                      {pinTaken(pin) ? ' (in use)' : ''}
                     </option>
                   ))}
                 </select>
@@ -148,16 +156,22 @@ function preview(node: DeviceFlowNode): string {
     return `${spec.label}(${args.join(', ')})`;
   }
   const varName = node.data.name ?? node.data.kind;
-  const [first, ...rest] = spec.params;
-  const args = [pyLiteral(params[first.name])];
+  const args: string[] = [];
   const attrs: string[] = [];
-  for (const p of rest) {
+  spec.params.forEach((p, i) => {
+    if (p.omit) return;
     const value = params[p.name];
-    if (value === p.default) continue;
     // attributes like source_delay are set after construction
-    if (p.attr) attrs.push(`${varName}.${p.name} = ${pyLiteral(value)}`);
-    else args.push(`${p.name}=${pyLiteral(value)}`);
-  }
+    if (p.attr) {
+      if (value !== p.default) attrs.push(`${varName}.${p.name} = ${pyLiteral(value)}`);
+      return;
+    }
+    if (i === 0) args.push(pyLiteral(value));
+    else if (p.type === 'pin' || value !== p.default) args.push(`${p.name}=${pyLiteral(value)}`);
+  });
+  // devices with simulation-only pin layouts (e.g. LEDBarGraph's *pins)
+  // leave a placeholder where the pins would go
+  if (spec.params.some((p) => p.omit)) args.unshift('...');
   return [`${varName} = ${spec.label}(${args.join(', ')})`, ...attrs].join('\n');
 }
 

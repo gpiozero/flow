@@ -42,8 +42,11 @@ function namesInUse(nodes: DeviceFlowNode[]): Set<string> {
 function pinsInUse(nodes: DeviceFlowNode[]): Set<number> {
   const pins = new Set<number>();
   for (const n of nodes) {
-    const pin = n.data.params.pin;
-    if (typeof pin === 'number') pins.add(pin);
+    for (const p of SPECS[n.data.kind].params) {
+      if (p.type !== 'pin') continue;
+      const pin = n.data.params[p.name];
+      if (typeof pin === 'number') pins.add(pin);
+    }
   }
   return pins;
 }
@@ -168,10 +171,13 @@ function Editor() {
       const kind = e.dataTransfer.getData(DRAG_MIME) as NodeKind | '';
       if (!kind || !(kind in SPECS)) return;
       const params = defaultParams(kind);
-      if ('pin' in params) {
-        const pin = nextFreePin(pinsInUse(nodes));
+      const usedPins = pinsInUse(nodes);
+      for (const p of SPECS[kind].params) {
+        if (p.type !== 'pin') continue;
+        const pin = nextFreePin(usedPins);
         if (pin === null) return; // every GPIO pin is taken
-        params.pin = pin;
+        params[p.name] = pin;
+        usedPins.add(pin);
       }
       const node: DeviceFlowNode = {
         id: `${kind}-${idCounter.current++}`,
@@ -204,7 +210,7 @@ function Editor() {
   const styledEdges = useMemo(
     () =>
       edges.map((e) => {
-        const active = (values[e.source] ?? 0) > 0;
+        const active = (values[e.source] ?? 0) !== 0;
         return {
           ...e,
           animated: active,
