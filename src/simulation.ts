@@ -7,18 +7,27 @@ import type { DeviceFlowNode, ParamValue } from './types';
  * artificial sources derive their value from it, and stateful tools
  * keep their per-node data here, keyed by node id.
  */
+type BooleanizedState = 'below' | 'in' | 'above';
+
 export interface SimState {
   step: number;
   smoothQueues: Map<string, number[]>;
   randoms: Map<string, number>;
   sourceSamples: Map<string, { step: number; value: number }>;
+  booleanizedStates: Map<string, BooleanizedState>;
 }
 
 /** Seconds per simulation clock step */
 export const TICK_SECONDS = 0.1;
 
 export function createSimState(): SimState {
-  return { step: 0, smoothQueues: new Map(), randoms: new Map(), sourceSamples: new Map() };
+  return {
+    step: 0,
+    smoothQueues: new Map(),
+    randoms: new Map(),
+    sourceSamples: new Map(),
+    booleanizedStates: new Map(),
+  };
 }
 
 /**
@@ -82,6 +91,9 @@ export function computeValues(
   for (const id of [...sim.sourceSamples.keys()]) {
     if (!byId.has(id)) sim.sourceSamples.delete(id);
   }
+  for (const id of [...sim.booleanizedStates.keys()]) {
+    if (!byId.has(id)) sim.booleanizedStates.delete(id);
+  }
 
   return values;
 }
@@ -140,6 +152,56 @@ function nodeValue(
       if (inputMax === inputMin) return outputMin;
       return outputMin + ((inputs[0] - inputMin) / (inputMax - inputMin)) * (outputMax - outputMin);
     }
+    case 'scaled_full':
+      // half-range (0..1) to full-range (-1..1): scaled(values, -1, 1, 0, 1)
+      if (inputs.length === 0) return 0;
+      return inputs[0] * 2 - 1;
+    case 'scaled_half':
+      // full-range (-1..1) to half-range (0..1): scaled(values, 0, 1, -1, 1)
+      if (inputs.length === 0) return 0;
+      return (inputs[0] + 1) / 2;
+    case 'clamped':
+      if (inputs.length === 0) return 0;
+      return clamp(inputs[0], Number(params.output_min), Number(params.output_max));
+    case 'absoluted':
+      if (inputs.length === 0) return 0;
+      return Math.abs(inputs[0]);
+    case 'quantized': {
+      if (inputs.length === 0) return 0;
+      const steps = Math.max(1, Math.floor(Number(params.steps)) || 1);
+      const inputMin = Number(params.input_min);
+      const inputMax = Number(params.input_max);
+      if (inputMax === inputMin) return inputMin;
+      const inputSize = inputMax - inputMin;
+      const normalized = (inputs[0] - inputMin) / inputSize;
+      return (Math.floor(normalized * steps) / steps) * inputSize + inputMin;
+    }
+    case 'booleanized': {
+      if (inputs.length === 0) return 0;
+      const v = inputs[0];
+      const minValue = Number(params.min_value);
+      const maxValue = Number(params.max_value);
+      const hysteresis = Math.max(0, Number(params.hysteresis) || 0);
+      const newState: BooleanizedState = v < minValue ? 'below' : v > maxValue ? 'above' : 'in';
+      const lastState = sim.booleanizedStates.get(node.id) ?? null;
+      let switchState = lastState === null || !hysteresis;
+      if (!switchState && newState !== lastState) {
+        if (lastState === 'below' && newState === 'in') switchState = v >= minValue + hysteresis;
+        else if (lastState === 'in' && newState === 'below') switchState = v < minValue - hysteresis;
+        else if (lastState === 'in' && newState === 'above') switchState = v > maxValue + hysteresis;
+        else if (lastState === 'above' && newState === 'in') switchState = v <= maxValue - hysteresis;
+        else switchState = true; // above <-> below directly
+      }
+      const finalState = switchState ? newState : lastState!;
+      sim.booleanizedStates.set(node.id, finalState);
+      return finalState === 'in' ? 1 : 0;
+    }
+    case 'averaged':
+      if (inputs.length === 0) return 0;
+      return inputs.reduce((a, b) => a + b, 0) / inputs.length;
+    case 'multiplied':
+      if (inputs.length === 0) return 0;
+      return inputs.reduce((a, b) => a * b, 1);
     case 'smoothed': {
       const window = sim.smoothQueues.get(node.id) ?? [];
       const qsize = Math.max(1, Math.floor(Number(params.qsize)) || 1);
