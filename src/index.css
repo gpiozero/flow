@@ -74,6 +74,18 @@ body {
   margin: 16px 0 6px;
 }
 
+.sidebar-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fff;
+  margin-bottom: 10px;
+}
+
 .sidebar-hint {
   font-size: 12px;
   color: var(--c-muted);
