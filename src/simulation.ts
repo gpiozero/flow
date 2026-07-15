@@ -110,9 +110,14 @@ function nodeValue(
       return state.pressed ? 1 : 0;
     case 'pot':
     case 'lightsensor':
+    case 'distancesensor':
       return clamp(Number(state.level ?? 0), 0, 1);
     case 'motionsensor':
       return state.motion ? 1 : 0;
+    case 'linesensor':
+      return state.detected ? 1 : 0;
+    case 'rotaryencoder':
+      return clamp(Number(state.level ?? 0), -1, 1);
     case 'led':
     case 'buzzer':
       // value is boolean: any truthy (nonzero) source value turns it on
@@ -125,6 +130,16 @@ function nodeValue(
     case 'ledbargraph':
       if (inputs.length === 0) return clamp(Number(params.initial_value ?? 0), -1, 1);
       return clamp(readSource(node, inputs[0], sim, advance), -1, 1);
+    case 'angularservo': {
+      if (inputs.length === 0) {
+        // mirror AngularServo's initial_angle -> Servo value conversion
+        const minAngle = Number(params.min_angle);
+        const angularRange = Number(params.max_angle) - minAngle;
+        if (angularRange === 0) return 0;
+        return clamp((2 * (Number(params.initial_angle) - minAngle)) / angularRange - 1, -1, 1);
+      }
+      return clamp(readSource(node, inputs[0], sim, advance), -1, 1);
+    }
     case 'motor':
       if (inputs.length === 0) return 0;
       return clamp(readSource(node, inputs[0], sim, advance), -1, 1);

@@ -51,11 +51,24 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         );
       case 'pot':
       case 'lightsensor':
+      case 'distancesensor':
         return (
           <input
             type="range"
             className="nodrag"
             min={0}
+            max={1}
+            step={0.01}
+            value={Number(data.state.level ?? 0)}
+            onChange={(e) => updateNodeState(id, { level: Number(e.target.value) })}
+          />
+        );
+      case 'rotaryencoder':
+        return (
+          <input
+            type="range"
+            className="nodrag"
+            min={-1}
             max={1}
             step={0.01}
             value={Number(data.state.level ?? 0)}
@@ -70,6 +83,16 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
             onClick={() => updateNodeState(id, { motion: !data.state.motion })}
           >
             {data.state.motion ? 'motion' : 'still'}
+          </button>
+        );
+      case 'linesensor':
+        return (
+          <button
+            className={`push-button nodrag${data.state.detected ? ' pressed' : ''}`}
+            title="Click to toggle line detection"
+            onClick={() => updateNodeState(id, { detected: !data.state.detected })}
+          >
+            {data.state.detected ? 'line' : 'no line'}
           </button>
         );
       case 'led':
@@ -89,6 +112,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
       case 'buzzer':
         return <div className={`buzzer${value !== 0 ? ' buzzing' : ''}`}>♪</div>;
       case 'servo':
+      case 'angularservo':
         return (
           <div className="servo-gauge">
             <div className="servo-arm" style={{ transform: `rotate(${value * 90}deg)` }} />
@@ -134,11 +158,17 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
       case 'pwmled':
       case 'buzzer':
       case 'servo':
+      case 'angularservo':
       case 'lightsensor':
       case 'motionsensor':
+      case 'linesensor':
         return `pin ${data.params.pin}`;
       case 'motor':
         return `pins ${data.params.forward}/${data.params.backward}`;
+      case 'distancesensor':
+        return `pins ${data.params.echo}/${data.params.trigger}`;
+      case 'rotaryencoder':
+        return `pins ${data.params.a}/${data.params.b}`;
       case 'ledbargraph':
         return `${data.params.leds} leds`;
       case 'pot':

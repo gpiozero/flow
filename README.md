@@ -32,18 +32,18 @@ a multi-channel wire design first.
 | MCP3008 | Input (ADC) | ✅ | modelled as a potentiometer; channels auto-assigned 0-7 |
 | LightSensor | Input | ✅ | simulated with a slider |
 | MotionSensor | Input | ✅ | simulated with a toggle |
-| LineSensor | Input | ❌ | trivial — boolean toggle, same shape as MotionSensor |
-| DistanceSensor | Input | ❌ | easy — slider like LightSensor, two pins like Motor |
-| RotaryEncoder | Input | ❌ | moderate — value is -1..1 but wants a knob widget |
+| LineSensor | Input | ✅ | boolean toggle, same shape as MotionSensor |
+| DistanceSensor | Input | ✅ | slider; two pins (`echo`, `trigger`) like Motor |
+| RotaryEncoder | Input | ✅ | -1..1 slider; a proper knob widget would be a nice follow-up |
 | Other MCP3xxx ADCs | Input (ADC) | ❌ | trivial variants of MCP3008 (channels/resolution) |
 | LED | Output | ✅ | |
 | PWMLED | Output | ✅ | |
 | Buzzer | Output | ✅ | visual only; WebAudio beep would be a fun follow-up |
 | Servo | Output | ✅ | needle sweeps -90° to +90° |
+| AngularServo | Output | ✅ | needle visual is a generic ±90°, not scaled to custom `min_angle`/`max_angle` |
 | Motor | Output | ✅ | two pins, bidirectional bar |
 | RGBLED | Output | ❌ | value is an (r, g, b) tuple — blocked on multi-channel wires |
 | TonalBuzzer | Output | ❌ | easy now -1..1 values exist; pairs with WebAudio |
-| AngularServo | Output | ❌ | easy — Servo plus angle params |
 | PhaseEnableMotor | Output | ❌ | trivial — Motor with a different pin layout |
 | LEDBarGraph | Board | ✅ | scalar value despite being multi-LED; one pin per LED |
 | LEDBoard | Board | ❌ | tuple value — blocked on multi-channel wires |

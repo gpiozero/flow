@@ -50,6 +50,45 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     params: [{ name: 'pin', label: 'pin', type: 'pin', default: 10 }],
     initialState: { motion: false },
   },
+  linesensor: {
+    kind: 'linesensor',
+    label: 'LineSensor',
+    section: 'inputs',
+    description: 'Reflective line/edge sensor',
+    valueKind: 'boolean',
+    hasInput: false,
+    hasOutput: true,
+    params: [{ name: 'pin', label: 'pin', type: 'pin', default: 20 }],
+    initialState: { detected: false },
+  },
+  distancesensor: {
+    kind: 'distancesensor',
+    label: 'DistanceSensor',
+    section: 'inputs',
+    description: 'HC-SR04 ultrasonic distance sensor',
+    valueKind: 'float',
+    hasInput: false,
+    hasOutput: true,
+    params: [
+      { name: 'echo', label: 'echo', type: 'pin', default: 21 },
+      { name: 'trigger', label: 'trigger', type: 'pin', default: 22 },
+    ],
+    initialState: { level: 0.5 },
+  },
+  rotaryencoder: {
+    kind: 'rotaryencoder',
+    label: 'RotaryEncoder',
+    section: 'inputs',
+    description: 'Incremental rotary encoder, -1 (CCW) to 1 (CW)',
+    valueKind: 'float',
+    hasInput: false,
+    hasOutput: true,
+    params: [
+      { name: 'a', label: 'a', type: 'pin', default: 23 },
+      { name: 'b', label: 'b', type: 'pin', default: 24 },
+    ],
+    initialState: { level: 0 },
+  },
   led: {
     kind: 'led',
     label: 'LED',
@@ -107,6 +146,22 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     params: [
       { name: 'pin', label: 'pin', type: 'pin', default: 12 },
       { name: 'initial_value', label: 'initial_value', type: 'float', default: 0, min: -1, max: 1, step: 0.05 },
+      { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
+    ],
+  },
+  angularservo: {
+    kind: 'angularservo',
+    label: 'AngularServo',
+    section: 'outputs',
+    description: 'Servo positioned by angle in degrees',
+    valueKind: 'float',
+    hasInput: true,
+    hasOutput: true,
+    params: [
+      { name: 'pin', label: 'pin', type: 'pin', default: 25 },
+      { name: 'initial_angle', label: 'initial_angle', type: 'float', default: 0, step: 1 },
+      { name: 'min_angle', label: 'min_angle', type: 'float', default: -90, step: 1 },
+      { name: 'max_angle', label: 'max_angle', type: 'float', default: 90, step: 1 },
       { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
     ],
   },
@@ -372,11 +427,23 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
 };
 
 export const SECTIONS: { id: Section; title: string; kinds: NodeKind[] }[] = [
-  { id: 'inputs', title: 'Inputs', kinds: ['button', 'pot', 'lightsensor', 'motionsensor'] },
+  {
+    id: 'inputs',
+    title: 'Inputs',
+    kinds: [
+      'button',
+      'pot',
+      'lightsensor',
+      'motionsensor',
+      'linesensor',
+      'distancesensor',
+      'rotaryencoder',
+    ],
+  },
   {
     id: 'outputs',
     title: 'Outputs',
-    kinds: ['led', 'pwmled', 'buzzer', 'servo', 'motor', 'ledbargraph'],
+    kinds: ['led', 'pwmled', 'buzzer', 'servo', 'angularservo', 'motor', 'ledbargraph'],
   },
   {
     id: 'tools',
