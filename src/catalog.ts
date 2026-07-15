@@ -132,6 +132,7 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     valueKind: 'float',
     hasInput: true,
     hasOutput: true,
+    dynamicPins: true,
     params: [
       { name: 'leds', label: 'leds', type: 'int', default: 5, min: 1, max: 10, omit: true },
       { name: 'initial_value', label: 'initial_value', type: 'float', default: 0, min: -1, max: 1, step: 0.05 },
@@ -322,6 +323,27 @@ export function nextDeviceName(kind: NodeKind, usedNames: ReadonlySet<string>): 
     const name = `${kind}${i}`;
     if (!usedNames.has(name)) return name;
   }
+}
+
+/** LED count for a dynamic-pin device, clamped to its valid range */
+export function barGraphLeds(params: Record<string, ParamValue>): number {
+  const n = Math.floor(Number(params.leds));
+  return Math.min(10, Math.max(1, n || 1));
+}
+
+/**
+ * Names of the pin-valued params a node should carry: the spec's pin
+ * params for most devices, or pin1..pinN sized by the leds param for
+ * dynamic-pin devices like LEDBarGraph.
+ */
+export function requiredPinParams(
+  kind: NodeKind,
+  params: Record<string, ParamValue>,
+): string[] {
+  if (SPECS[kind].dynamicPins) {
+    return Array.from({ length: barGraphLeds(params) }, (_, i) => `pin${i + 1}`);
+  }
+  return SPECS[kind].params.filter((p) => p.type === 'pin').map((p) => p.name);
 }
 
 export function defaultParams(kind: NodeKind): Record<string, ParamValue> {

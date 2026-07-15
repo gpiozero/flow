@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import type { PointerEvent } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
-import { SPECS } from '../catalog';
+import { SPECS, barGraphLeds } from '../catalog';
 import { useFlow } from '../store';
 import type { DeviceFlowNode } from '../types';
 
@@ -110,7 +110,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
           </div>
         );
       case 'ledbargraph': {
-        const leds = Math.max(1, Math.floor(Number(data.params.leds)) || 1);
+        const leds = barGraphLeds(data.params);
         const lit = Math.round(Math.abs(value) * leds);
         // negative values fill from the far end, as in gpiozero
         return (

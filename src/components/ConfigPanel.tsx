@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { GPIO_PINS, NAME_PATTERN, SPECS } from '../catalog';
+import { GPIO_PINS, NAME_PATTERN, SPECS, requiredPinParams } from '../catalog';
 import type { DeviceFlowNode, ParamValue } from '../types';
 
 interface Props {
@@ -30,6 +30,30 @@ export function ConfigPanel({ node, takenPins, takenNames, onChangeParam, onChan
   }
 
   const spec = SPECS[node.data.kind];
+  const pinNames = requiredPinParams(node.data.kind, node.data.params);
+
+  // A pin dropdown disables pins used by other nodes and by this
+  // node's own other pin params (e.g. Motor's forward/backward).
+  const renderPinSelect = (name: string) => {
+    const siblings = new Set(
+      pinNames.filter((k) => k !== name).map((k) => Number(node.data.params[k])),
+    );
+    const pinTaken = (pin: number) => takenPins.has(pin) || siblings.has(pin);
+    return (
+      <select
+        value={Number(node.data.params[name])}
+        onChange={(e) => onChangeParam(node.id, name, Number(e.target.value))}
+      >
+        {GPIO_PINS.map((pin) => (
+          <option key={pin} value={pin} disabled={pinTaken(pin)}>
+            {pin}
+            {pinTaken(pin) ? ' (in use)' : ''}
+          </option>
+        ))}
+      </select>
+    );
+  };
+
   return (
     <aside className="config-panel">
       <h2>{spec.label}</h2>
@@ -47,29 +71,11 @@ export function ConfigPanel({ node, takenPins, takenNames, onChangeParam, onChan
       ) : (
         spec.params.map((p) => {
           const value = node.data.params[p.name];
-          // pins used by this node's other pin params (e.g. Motor's
-          // forward/backward must differ)
-          const siblingPins = new Set(
-            spec.params
-              .filter((q) => q.type === 'pin' && q.name !== p.name)
-              .map((q) => Number(node.data.params[q.name])),
-          );
-          const pinTaken = (pin: number) => takenPins.has(pin) || siblingPins.has(pin);
           return (
             <label key={p.name} className="config-field">
               <span>{p.label}</span>
               {p.type === 'pin' ? (
-                <select
-                  value={Number(value)}
-                  onChange={(e) => onChangeParam(node.id, p.name, Number(e.target.value))}
-                >
-                  {GPIO_PINS.map((pin) => (
-                    <option key={pin} value={pin} disabled={pinTaken(pin)}>
-                      {pin}
-                      {pinTaken(pin) ? ' (in use)' : ''}
-                    </option>
-                  ))}
-                </select>
+                renderPinSelect(p.name)
               ) : p.type === 'bool' ? (
                 <input
                   type="checkbox"
@@ -90,6 +96,13 @@ export function ConfigPanel({ node, takenPins, takenNames, onChangeParam, onChan
           );
         })
       )}
+      {spec.dynamicPins &&
+        pinNames.map((name) => (
+          <label key={name} className="config-field">
+            <span>{name}</span>
+            {renderPinSelect(name)}
+          </label>
+        ))}
       <div className="config-code">
         <code>{preview(node)}</code>
       </div>
@@ -158,6 +171,12 @@ function preview(node: DeviceFlowNode): string {
   const varName = node.data.name ?? node.data.kind;
   const args: string[] = [];
   const attrs: string[] = [];
+  // dynamic pin lists (LEDBarGraph's *pins) come first, positionally
+  if (spec.dynamicPins) {
+    for (const key of requiredPinParams(node.data.kind, params)) {
+      args.push(pyLiteral(params[key]));
+    }
+  }
   spec.params.forEach((p, i) => {
     if (p.omit) return;
     const value = params[p.name];
@@ -169,9 +188,6 @@ function preview(node: DeviceFlowNode): string {
     if (i === 0) args.push(pyLiteral(value));
     else if (p.type === 'pin' || value !== p.default) args.push(`${p.name}=${pyLiteral(value)}`);
   });
-  // devices with simulation-only pin layouts (e.g. LEDBarGraph's *pins)
-  // leave a placeholder where the pins would go
-  if (spec.params.some((p) => p.omit)) args.unshift('...');
   return [`${varName} = ${spec.label}(${args.join(', ')})`, ...attrs].join('\n');
 }
 

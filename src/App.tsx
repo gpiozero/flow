@@ -23,7 +23,15 @@ import { ConfigPanel } from './components/ConfigPanel';
 import { DeviceNode } from './components/DeviceNode';
 import { DRAG_MIME, Sidebar } from './components/Sidebar';
 import { WireEdge } from './components/WireEdge';
-import { SPECS, defaultParams, defaultState, isDevice, nextDeviceName, nextFreePin } from './catalog';
+import {
+  SPECS,
+  defaultParams,
+  defaultState,
+  isDevice,
+  nextDeviceName,
+  nextFreePin,
+  requiredPinParams,
+} from './catalog';
 import { TICK_SECONDS, computeValues, createSimState } from './simulation';
 import { FlowContext } from './store';
 import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
@@ -42,9 +50,8 @@ function namesInUse(nodes: DeviceFlowNode[]): Set<string> {
 function pinsInUse(nodes: DeviceFlowNode[]): Set<number> {
   const pins = new Set<number>();
   for (const n of nodes) {
-    for (const p of SPECS[n.data.kind].params) {
-      if (p.type !== 'pin') continue;
-      const pin = n.data.params[p.name];
+    for (const name of requiredPinParams(n.data.kind, n.data.params)) {
+      const pin = n.data.params[name];
       if (typeof pin === 'number') pins.add(pin);
     }
   }
@@ -109,13 +116,36 @@ function Editor() {
     [setNodes],
   );
 
+  // Changing a dynamic-pin device's led count grows or shrinks its
+  // pin1..pinN params, assigning free pins to new entries. The stored
+  // count is canonicalised to however many pins could be assigned.
   const updateNodeParam = useCallback(
     (id: string, name: string, value: ParamValue) => {
-      setNodes((ns) =>
-        ns.map((n) =>
-          n.id === id ? { ...n, data: { ...n.data, params: { ...n.data.params, [name]: value } } } : n,
-        ),
-      );
+      setNodes((ns) => {
+        const usedPins = pinsInUse(ns);
+        return ns.map((n) => {
+          if (n.id !== id) return n;
+          const params = { ...n.data.params, [name]: value };
+          if (SPECS[n.data.kind].dynamicPins && name === 'leds') {
+            const wanted = requiredPinParams(n.data.kind, params);
+            for (const key of Object.keys(params)) {
+              if (/^pin\d+$/.test(key) && !wanted.includes(key)) delete params[key];
+            }
+            let count = 0;
+            for (const key of wanted) {
+              if (!(key in params)) {
+                const pin = nextFreePin(usedPins);
+                if (pin === null) break; // out of pins
+                params[key] = pin;
+                usedPins.add(pin);
+              }
+              count++;
+            }
+            params.leds = count;
+          }
+          return { ...n, data: { ...n.data, params } };
+        });
+      });
     },
     [setNodes],
   );
@@ -172,11 +202,10 @@ function Editor() {
       if (!kind || !(kind in SPECS)) return;
       const params = defaultParams(kind);
       const usedPins = pinsInUse(nodes);
-      for (const p of SPECS[kind].params) {
-        if (p.type !== 'pin') continue;
+      for (const name of requiredPinParams(kind, params)) {
         const pin = nextFreePin(usedPins);
         if (pin === null) return; // every GPIO pin is taken
-        params[p.name] = pin;
+        params[name] = pin;
         usedPins.add(pin);
       }
       const node: DeviceFlowNode = {

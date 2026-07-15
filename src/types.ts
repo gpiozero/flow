@@ -56,6 +56,8 @@ export interface NodeSpec {
   hasOutput: boolean;
   /** value depends on the simulation clock, not just on inputs */
   timeBased?: boolean;
+  /** takes a variable-length pin list (pin1..pinN params) sized by the `leds` param */
+  dynamicPins?: boolean;
   params: ParamSpec[];
   /** interactive state for simulation, e.g. { pressed: false } */
   initialState?: Record<string, ParamValue>;
