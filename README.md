@@ -119,6 +119,16 @@ an LEDBarGraph holds one pin per LED — change its led count (1-10) and pins ar
 released to match. MCP3008 pots work the same way with ADC channels, taking the lowest free
 channel from 0-7.
 
+**Known issue (matters once we target real hardware):** the MCP3008 talks over the SPI bus,
+so constructing one in gpiozero reserves GPIO 8-11 (CE0/MISO/MOSI/SCLK; a second chip on CE1
+would also take GPIO 7). The app doesn't model this — a pot occupies no GPIO pins here, and
+the auto-assigner will happily give 8-11 to other devices. A canvas mixing a pot with enough
+pinned devices therefore generates a script that raises `GPIOPinInUse` on a real Pi (verified
+against gpiozero 2.0.1's mock pin factory), even though the simulation is fine. Fix when we
+wire up real GPIO: treat GPIO 8-11 as taken while any MCP3008 is on the canvas, disable them
+in pin dropdowns with an "SPI" note, and decide what happens when a pot is dropped after
+8-11 are already assigned (block with a warning, or reassign the clashing devices).
+
 ## Simulation clock
 
 While any time-based node (an artificial source, or `smoothed`) is on the canvas — or any
