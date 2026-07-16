@@ -27,6 +27,7 @@ import { WireEdge } from './components/WireEdge';
 import {
   PIN_ASSIGN_ORDER,
   SPECS,
+  barGraphLeds,
   defaultParams,
   defaultState,
   inputShapeOf,
@@ -242,8 +243,17 @@ function Editor() {
       if (!kind || !(kind in SPECS)) return;
       const params = defaultParams(kind);
       const usedPins = pinsInUse(nodes);
-      const neededPins = requiredPinParams(kind, params);
       const freePins = PIN_ASSIGN_ORDER.length - usedPins.size;
+      // dynamic-pin devices shrink to the available pins rather than
+      // refusing the drop (LEDBarGraph works from 1 LED up)
+      if (SPECS[kind].dynamicPins && freePins >= 1 && barGraphLeds(params) > freePins) {
+        params.leds = freePins;
+        showWarning(
+          `Only ${freePins} free GPIO pin${freePins === 1 ? '' : 's'} — ` +
+            `${SPECS[kind].label} created with ${freePins} LED${freePins === 1 ? '' : 's'}`,
+        );
+      }
+      const neededPins = requiredPinParams(kind, params);
       if (neededPins.length > freePins) {
         showWarning(
           `${SPECS[kind].label} needs ${neededPins.length} free GPIO ` +
