@@ -20,6 +20,10 @@ export function deviceConstructor(node: DeviceFlowNode): string {
       args.push(pyLiteral(params[key]));
     }
   }
+  // a lone pin is idiomatic positionally (LED(17)); once there are
+  // several, name them all so the reader needn't recall the order.
+  // ADC channels are always named (MCP3008(channel=0)).
+  const pinCount = spec.params.filter((p) => p.type === 'pin' || p.type === 'channel').length;
   spec.params.forEach((p, i) => {
     if (p.omit) return;
     const value = params[p.name];
@@ -28,8 +32,9 @@ export function deviceConstructor(node: DeviceFlowNode): string {
       if (value !== p.default) attrs.push(`${varName}.${p.name} = ${pyLiteral(value)}`);
       return;
     }
-    if (i === 0) args.push(pyLiteral(value));
-    else if (p.type === 'pin' || value !== p.default) args.push(`${p.name}=${pyLiteral(value)}`);
+    const isPin = p.type === 'pin' || p.type === 'channel';
+    if (i === 0 && pinCount <= 1 && p.type !== 'channel') args.push(pyLiteral(value));
+    else if (isPin || value !== p.default) args.push(`${p.name}=${pyLiteral(value)}`);
   });
   return [`${varName} = ${spec.label}(${args.join(', ')})`, ...attrs].join('\n');
 }
