@@ -762,8 +762,25 @@ body {
   font-size: 11px;
 }
 
-.config-delete {
+.config-duplicate {
   margin-top: 12px;
+  width: 100%;
+  padding: 6px;
+  border: 1px solid #94a3b8;
+  border-radius: 6px;
+  background: #fff;
+  color: #334155;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.config-duplicate:hover {
+  background: #f1f5f9;
+}
+
+.config-delete {
+  margin-top: 8px;
   width: 100%;
   padding: 6px;
   border: 1px solid #dc2626;

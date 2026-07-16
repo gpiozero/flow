@@ -14,6 +14,8 @@ interface Props {
   takenChannels: ReadonlySet<number>;
   onChangeParam: (id: string, name: string, value: ParamValue) => void;
   onChangeName: (id: string, name: string) => void;
+  /** copy this node: same params/state, fresh pins and name */
+  onDuplicate: (id: string) => void;
 }
 
 export function ConfigPanel({
@@ -23,6 +25,7 @@ export function ConfigPanel({
   takenChannels,
   onChangeParam,
   onChangeName,
+  onDuplicate,
 }: Props) {
   const { deleteElements } = useReactFlow();
 
@@ -128,6 +131,9 @@ export function ConfigPanel({
       <div className="config-code">
         <code>{preview(node)}</code>
       </div>
+      <button className="config-duplicate" onClick={() => onDuplicate(node.id)}>
+        Duplicate node
+      </button>
       <button
         className="config-delete"
         onClick={() => deleteElements({ nodes: [{ id: node.id }] })}

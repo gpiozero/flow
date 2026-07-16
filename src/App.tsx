@@ -236,16 +236,21 @@ function Editor() {
     e.dataTransfer.dropEffect = 'move';
   }, []);
 
-  const onDrop = useCallback(
-    (e: DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      const kind = e.dataTransfer.getData(DRAG_MIME) as NodeKind | '';
-      if (!kind || !(kind in SPECS)) return;
-      const params = defaultParams(kind);
+  // Create a node at `position`, either fresh from the catalog or (when
+  // duplicating/pasting) seeded with an existing node's params and
+  // state. Pins and channels are always assigned fresh from the free
+  // pool, and the copy gets its own name; dynamic-pin devices shrink to
+  // the available pins rather than refusing (LEDBarGraph works from 1
+  // LED up).
+  const materialiseNode = useCallback(
+    (
+      kind: NodeKind,
+      position: { x: number; y: number },
+      base?: { params: Record<string, ParamValue>; state: Record<string, ParamValue> },
+    ) => {
+      const params = base ? { ...base.params } : defaultParams(kind);
       const usedPins = pinsInUse(nodes);
       const freePins = PIN_ASSIGN_ORDER.length - usedPins.size;
-      // dynamic-pin devices shrink to the available pins rather than
-      // refusing the drop (LEDBarGraph works from 1 LED up)
       if (SPECS[kind].dynamicPins && freePins >= 1 && barGraphLeds(params) > freePins) {
         params.leds = freePins;
         showWarning(
@@ -261,6 +266,12 @@ function Editor() {
             `${freePins === 0 ? 'none are' : freePins === 1 ? 'only 1 is' : `only ${freePins} are`} left`,
         );
         return;
+      }
+      // drop pin params a copied bar graph no longer needs after shrinking
+      if (SPECS[kind].dynamicPins) {
+        for (const key of Object.keys(params)) {
+          if (/^pin\d+$/.test(key) && !neededPins.includes(key)) delete params[key];
+        }
       }
       for (const name of neededPins) {
         const pin = nextFreePin(usedPins);
@@ -282,18 +293,97 @@ function Editor() {
       const node: DeviceFlowNode = {
         id: `${kind}-${idCounter.current++}`,
         type: 'device',
-        position: screenToFlowPosition({ x: e.clientX, y: e.clientY }),
+        position,
         data: {
           kind,
           ...(isDevice(kind) ? { name: nextDeviceName(kind, namesInUse(nodes)) } : {}),
           params,
-          state: defaultState(kind),
+          state: base ? { ...base.state } : defaultState(kind),
         },
       };
-      setNodes((ns) => [...ns, node]);
+      // select the copy: it takes over the selection z-elevation (so it
+      // isn't hidden under the still-selected original) and the panel
+      if (base) {
+        node.selected = true;
+        setSelectedId(node.id);
+        setNodes((ns) => [...ns.map((n) => (n.selected ? { ...n, selected: false } : n)), node]);
+      } else {
+        setNodes((ns) => [...ns, node]);
+      }
     },
-    [nodes, screenToFlowPosition, setNodes, showWarning],
+    [nodes, setNodes, showWarning],
   );
+
+  const onDrop = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      const kind = e.dataTransfer.getData(DRAG_MIME) as NodeKind | '';
+      if (!kind || !(kind in SPECS)) return;
+      materialiseNode(kind, screenToFlowPosition({ x: e.clientX, y: e.clientY }));
+    },
+    [materialiseNode, screenToFlowPosition],
+  );
+
+  // Copy/paste: Ctrl/Cmd+C snapshots the selected node, each Ctrl/Cmd+V
+  // materialises a copy stepped diagonally from the original. The copy
+  // keeps params and interactive state but gets fresh pins and a fresh
+  // name, since those must be unique.
+  const clipboardRef = useRef<{
+    kind: NodeKind;
+    params: Record<string, ParamValue>;
+    state: Record<string, ParamValue>;
+    position: { x: number; y: number };
+  } | null>(null);
+  const pasteCount = useRef(0);
+
+  const copySelected = useCallback(() => {
+    const node = nodes.find((n) => n.id === selectedId);
+    if (!node) return;
+    clipboardRef.current = {
+      kind: node.data.kind,
+      params: { ...node.data.params },
+      state: { ...node.data.state },
+      position: { ...node.position },
+    };
+    pasteCount.current = 0;
+  }, [nodes, selectedId]);
+
+  const pasteClipboard = useCallback(() => {
+    const clip = clipboardRef.current;
+    if (!clip) return;
+    const offset = 24 * ++pasteCount.current;
+    materialiseNode(
+      clip.kind,
+      { x: clip.position.x + offset, y: clip.position.y + offset },
+      clip,
+    );
+  }, [materialiseNode]);
+
+  const duplicateNode = useCallback(
+    (id: string) => {
+      const node = nodes.find((n) => n.id === id);
+      if (!node) return;
+      materialiseNode(
+        node.data.kind,
+        { x: node.position.x + 24, y: node.position.y + 24 },
+        { params: node.data.params, state: node.data.state },
+      );
+    },
+    [nodes, materialiseNode],
+  );
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || scriptOpen) return;
+      // leave copy/paste alone inside text fields and dropdowns
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable]')) return;
+      if (e.key.toLowerCase() === 'c') copySelected();
+      else if (e.key.toLowerCase() === 'v') pasteClipboard();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [copySelected, pasteClipboard, scriptOpen]);
 
   const onSelectionChange = useCallback(({ nodes: selected }: OnSelectionChangeParams) => {
     setSelectedId(selected.length === 1 ? selected[0].id : null);
@@ -393,6 +483,7 @@ function Editor() {
             takenChannels={takenChannels}
             onChangeParam={updateNodeParam}
             onChangeName={updateNodeName}
+            onDuplicate={duplicateNode}
           />
         </div>
       </div>

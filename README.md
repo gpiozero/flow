@@ -105,6 +105,11 @@ Remove a node with the × in its corner (shown on hover/select), the **Delete no
 the config panel, or Delete/Backspace; wires go with it. Wires can be removed with their own ×
 or a double-click.
 
+Copy the selected node with Ctrl/Cmd+C and paste copies with Ctrl/Cmd+V (or use the
+**Duplicate node** button in the config panel). Copies keep the original's params and
+interactive state but get fresh pins/channels and a fresh name, since those must be unique;
+wires are not copied.
+
 ## Pins and channels
 
 New GPIO devices are assigned the next free pin automatically (4-27 first, then 0-3 as a last
