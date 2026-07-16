@@ -136,9 +136,11 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
       case 'trafficlights':
         return (
           <div className="traffic-light">
-            <div className={`traffic-lamp red${channel(0) !== 0 ? ' on' : ''}`} />
-            <div className={`traffic-lamp amber${channel(1) !== 0 ? ' on' : ''}`} />
-            <div className={`traffic-lamp green${channel(2) !== 0 ? ' on' : ''}`} />
+            {['red', 'amber', 'green'].map((colour, i) => (
+              <div key={colour} className={`traffic-lamp ${colour}`}>
+                <div className="traffic-fill" style={{ opacity: channel(i) }} />
+              </div>
+            ))}
           </div>
         );
       case 'servo':
@@ -165,13 +167,21 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         );
       case 'ledbargraph': {
         const leds = barGraphLeds(data.params);
-        const lit = Math.round(Math.abs(value) * leds);
-        // negative values fill from the far end, as in gpiozero
+        const mag = Math.abs(value) * leds;
         return (
           <div className="bar-graph">
             {Array.from({ length: leds }, (_, i) => {
-              const on = value < 0 ? i >= leds - lit : i < lit;
-              return <div key={i} className={`bar-led${on ? ' on' : ''}`} />;
+              // negative values fill from the far end, as in gpiozero;
+              // with pwm the LED the value only partly covers is dimmed
+              const slot = value < 0 ? leds - 1 - i : i;
+              const brightness = Math.min(1, Math.max(0, mag - slot + 1e-9));
+              if (!data.params.pwm)
+                return <div key={i} className={`bar-led${brightness >= 1 ? ' on' : ''}`} />;
+              return (
+                <div key={i} className="bar-led">
+                  <div className="bar-fill" style={{ opacity: brightness }} />
+                </div>
+              );
             })}
           </div>
         );
@@ -233,7 +243,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
           className={`node-value${tuple ? ' node-value-tuple' : spec.valueKind === 'float' ? ' node-value-float' : ''}`}
         >
           {tuple
-            ? `(${tuple.map((c) => (spec.valueKind === 'float' ? c.toFixed(1) : c !== 0 ? '1' : '0')).join(', ')})`
+            ? `(${tuple.map((c) => ((data.params.pwm ?? spec.valueKind === 'float') ? c.toFixed(1) : c !== 0 ? '1' : '0')).join(', ')})`
             : spec.valueKind === 'float'
               ? value.toFixed(2)
               : value > 0

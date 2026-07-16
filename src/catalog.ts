@@ -190,6 +190,7 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     dynamicPins: true,
     params: [
       { name: 'leds', label: 'leds', type: 'int', default: 5, min: 1, max: 10, omit: true },
+      { name: 'pwm', label: 'pwm', type: 'bool', default: false },
       { name: 'initial_value', label: 'initial_value', type: 'float', default: 0, min: -1, max: 1, step: 0.05 },
       { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
     ],
@@ -209,6 +210,7 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
       { name: 'green', label: 'green', type: 'pin', default: 6 },
       { name: 'blue', label: 'blue', type: 'pin', default: 7 },
       { name: 'active_high', label: 'active_high', type: 'bool', default: true },
+      { name: 'pwm', label: 'pwm', type: 'bool', default: true },
       { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
     ],
   },
@@ -226,6 +228,7 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
       { name: 'red', label: 'red', type: 'pin', default: 14 },
       { name: 'amber', label: 'amber', type: 'pin', default: 15 },
       { name: 'green', label: 'green', type: 'pin', default: 16 },
+      { name: 'pwm', label: 'pwm', type: 'bool', default: false },
       { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
     ],
   },

@@ -44,13 +44,13 @@ just need their node designs (per-channel pins, visuals).
 | Servo | Output | ✅ | needle sweeps -90° to +90° |
 | AngularServo | Output | ✅ | needle visual is a generic ±90°, not scaled to custom `min_angle`/`max_angle` |
 | Motor | Output | ✅ | two pins, bidirectional bar |
-| RGBLED | Output | ✅ | colour swatch; source must yield (r, g, b) tuples, e.g. from `zip_values` |
+| RGBLED | Output | ✅ | colour swatch; source must yield (r, g, b) tuples, e.g. from `zip_values`; `pwm=False` snaps to the 8 primary/secondary colours |
 | TonalBuzzer | Output | ❌ | easy now -1..1 values exist; pairs with WebAudio |
 | PhaseEnableMotor | Output | ❌ | trivial — Motor with a different pin layout |
-| LEDBarGraph | Board | ✅ | scalar value despite being multi-LED; one pin per LED |
+| LEDBarGraph | Board | ✅ | scalar value despite being multi-LED; one pin per LED; `pwm=True` dims the partially-covered LED, without it the value reads back quantized to lit/total |
 | LEDBoard | Board | ❌ | unblocked by tuple wires; needs dynamic pin count like LEDBarGraph |
 | ButtonBoard | Board | ❌ | unblocked by tuple wires; needs a tuple-emitting input widget |
-| TrafficLights | Board | ✅ | red/amber/green lamps; boolean channels in that order |
+| TrafficLights | Board | ✅ | red/amber/green lamps; boolean channels in that order, or fractional dimming with `pwm=True` |
 | Robot | Board | ❌ | tuple of motor values plus board-level methods |
 | Other boards (FishDish, JamHat, …) | Board | ❌ | mostly tuple values; case-by-case now tuple wires exist |
 | Energenie | Other | ❌ | easy — boolean like LED, socket number instead of pin |

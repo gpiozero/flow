@@ -1,4 +1,5 @@
 import type { Edge } from '@xyflow/react';
+import { barGraphLeds } from './catalog';
 import type { DeviceFlowNode, ParamValue, SimValue } from './types';
 
 /**
@@ -129,9 +130,19 @@ function nodeValue(
       if (inputs.length === 0) return clamp(Number(params.initial_value ?? 0), 0, 1);
       return clamp(toNumber(readSource(node, inputs[0], sim, advance)), 0, 1);
     case 'servo':
-    case 'ledbargraph':
       if (inputs.length === 0) return clamp(Number(params.initial_value ?? 0), -1, 1);
       return clamp(toNumber(readSource(node, inputs[0], sim, advance)), -1, 1);
+    case 'ledbargraph': {
+      const v =
+        inputs.length === 0
+          ? clamp(Number(params.initial_value ?? 0), -1, 1)
+          : clamp(toNumber(readSource(node, inputs[0], sim, advance)), -1, 1);
+      if (params.pwm) return v;
+      // non-PWM value reads back as lit/total, as in gpiozero (an LED
+      // only lights when the value fully covers it)
+      const n = barGraphLeds(params);
+      return (Math.sign(v) * Math.floor(Math.abs(v) * n + 1e-9)) / n;
+    }
     case 'angularservo': {
       if (inputs.length === 0) {
         // mirror AngularServo's initial_angle -> Servo value conversion
@@ -146,15 +157,18 @@ function nodeValue(
       if (inputs.length === 0) return 0;
       return clamp(toNumber(readSource(node, inputs[0], sim, advance)), -1, 1);
     case 'rgbled': {
+      // pwm=False swaps the PWMLEDs for plain LEDs: truthy channels
+      // snap to full, limiting the mix to the 8 primary/secondary colours
       if (rawInputs.length === 0) return [0, 0, 0];
       const v = readSource(node, rawInputs[0], sim, advance);
-      return channels(v, 3).map((c) => clamp(c, 0, 1));
+      return channels(v, 3).map((c) => (params.pwm ? clamp(c, 0, 1) : c !== 0 ? 1 : 0));
     }
     case 'trafficlights': {
-      // boolean LEDs: any truthy channel value lights that lamp
+      // boolean LEDs: any truthy channel value lights that lamp;
+      // with pwm=True the lamps are PWMLEDs and dim fractionally
       if (rawInputs.length === 0) return [0, 0, 0];
       const v = readSource(node, rawInputs[0], sim, advance);
-      return channels(v, 3).map((c) => (c !== 0 ? 1 : 0));
+      return channels(v, 3).map((c) => (params.pwm ? clamp(c, 0, 1) : c !== 0 ? 1 : 0));
     }
     case 'zip_values':
       // one channel per wired source, in connection order
