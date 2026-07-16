@@ -63,6 +63,8 @@ export interface ParamSpec {
   step?: number;
   /** set as an attribute after construction (e.g. source_delay), not a constructor arg */
   attr?: boolean;
+  /** required by the gpiozero signature: always emitted, even at its default */
+  required?: boolean;
   /** simulation-only param with no gpiozero equivalent; left out of the code preview */
   omit?: boolean;
 }

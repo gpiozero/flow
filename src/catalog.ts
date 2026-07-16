@@ -363,8 +363,8 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     hasInput: true,
     hasOutput: true,
     params: [
-      { name: 'output_min', label: 'output_min', type: 'float', default: 0, step: 0.1 },
-      { name: 'output_max', label: 'output_max', type: 'float', default: 1, step: 0.1 },
+      { name: 'output_min', label: 'output_min', type: 'float', default: 0, step: 0.1, required: true },
+      { name: 'output_max', label: 'output_max', type: 'float', default: 1, step: 0.1, required: true },
       { name: 'input_min', label: 'input_min', type: 'float', default: 0, step: 0.1 },
       { name: 'input_max', label: 'input_max', type: 'float', default: 1, step: 0.1 },
     ],
@@ -421,7 +421,7 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     hasInput: true,
     hasOutput: true,
     params: [
-      { name: 'steps', label: 'steps', type: 'int', default: 4, min: 1, max: 100 },
+      { name: 'steps', label: 'steps', type: 'int', default: 4, min: 1, max: 100, required: true },
       { name: 'input_min', label: 'input_min', type: 'float', default: 0, step: 0.1 },
       { name: 'input_max', label: 'input_max', type: 'float', default: 1, step: 0.1 },
     ],
@@ -435,8 +435,8 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     hasInput: true,
     hasOutput: true,
     params: [
-      { name: 'min_value', label: 'min_value', type: 'float', default: 0.25, step: 0.05 },
-      { name: 'max_value', label: 'max_value', type: 'float', default: 0.75, step: 0.05 },
+      { name: 'min_value', label: 'min_value', type: 'float', default: 0.25, step: 0.05, required: true },
+      { name: 'max_value', label: 'max_value', type: 'float', default: 0.75, step: 0.05, required: true },
       { name: 'hysteresis', label: 'hysteresis', type: 'float', default: 0, min: 0, step: 0.05 },
     ],
   },

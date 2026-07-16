@@ -47,7 +47,7 @@ export function toolCall(node: DeviceFlowNode, inputExprs: string[]): string {
   for (const p of spec.params) {
     if (p.omit) continue;
     const value = params[p.name];
-    if (value !== p.default) args.push(`${p.name}=${pyLiteral(value)}`);
+    if (p.required || value !== p.default) args.push(`${p.name}=${pyLiteral(value)}`);
   }
   return `${spec.label}(${args.join(', ')})`;
 }
@@ -68,10 +68,17 @@ export function generateScript(nodes: DeviceFlowNode[], edges: Edge[]): string {
     else incoming.set(e.target, [e.source]);
   }
 
-  // gpiozero's zip_values takes device objects (it reads their .values
-  // itself); with anonymous tool expressions in the mix, builtin zip
-  // over the resolved iterators is the equivalent.
+  // Devices are referenced bare (led.source = button, negated(button)):
+  // source setters and gpiozero.tools normalise them to .values, the
+  // recommended style since gpiozero 1.5. gpiozero's zip_values takes
+  // device objects too; with anonymous tool expressions in the mix,
+  // builtin zip is the equivalent, but being plain zip it needs the
+  // .values iterators spelt out for any devices among its arguments.
   const allDevices = (ids: string[]) => ids.every((i) => isDevice(nodesById.get(i)!.data.kind));
+  const iterExprFor = (id: string): string => {
+    const node = nodesById.get(id)!;
+    return isDevice(node.data.kind) ? `${node.data.name}.values` : exprFor(id);
+  };
 
   const exprCache = new Map<string, string>();
   const exprFor = (id: string): string => {
@@ -80,10 +87,10 @@ export function generateScript(nodes: DeviceFlowNode[], edges: Edge[]): string {
     const node = nodesById.get(id)!;
     const preds = incoming.get(id) ?? [];
     let expr: string;
-    if (isDevice(node.data.kind)) expr = `${node.data.name}.values`;
+    if (isDevice(node.data.kind)) expr = `${node.data.name}`;
     else if (node.data.kind === 'zip_values' && allDevices(preds))
       expr = `zip_values(${preds.map((p) => nodesById.get(p)!.data.name).join(', ')})`;
-    else if (node.data.kind === 'zip_values') expr = `zip(${preds.map(exprFor).join(', ')})`;
+    else if (node.data.kind === 'zip_values') expr = `zip(${preds.map(iterExprFor).join(', ')})`;
     else expr = toolCall(node, preds.map(exprFor));
     exprCache.set(id, expr);
     return expr;
