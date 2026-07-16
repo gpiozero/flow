@@ -74,6 +74,42 @@ body {
   margin: 16px 0 6px;
 }
 
+.palette-section-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.palette-section-arrow {
+  display: inline-block;
+  font-size: 9px;
+  transition: transform 0.15s ease;
+}
+
+.palette-section-arrow.collapsed {
+  transform: rotate(-90deg);
+}
+
+.palette-section-toggle {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-family: inherit;
+  color: var(--c-accent, #3b82f6);
+  cursor: pointer;
+  text-align: left;
+}
+
+.palette-section-toggle:hover {
+  text-decoration: underline;
+}
+
 .sidebar-search {
   width: 100%;
   box-sizing: border-box;
@@ -195,6 +231,13 @@ body {
   background: #f1f5f9;
   border-radius: 4px;
   padding: 0 4px;
+}
+
+.node-value-float {
+  display: inline-block;
+  min-width: calc(5ch + 8px);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .node-body {

@@ -195,7 +195,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
       )}
       <div className="node-header">
         <span className="node-title">{data.name ?? spec.label}</span>
-        <span className="node-value">
+        <span className={`node-value${spec.valueKind === 'float' ? ' node-value-float' : ''}`}>
           {spec.valueKind === 'float' ? value.toFixed(2) : value > 0 ? '1' : '0'}
         </span>
       </div>
