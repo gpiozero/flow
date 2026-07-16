@@ -28,13 +28,15 @@ import {
   SPECS,
   defaultParams,
   defaultState,
+  inputShapeOf,
   isDevice,
   nextDeviceName,
   nextFreeChannel,
   nextFreePin,
+  outputShapeOf,
   requiredPinParams,
 } from './catalog';
-import { TICK_SECONDS, computeValues, createSimState } from './simulation';
+import { TICK_SECONDS, anyChannelActive, computeValues, createSimState } from './simulation';
 import { FlowContext } from './store';
 import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
 
@@ -180,11 +182,16 @@ function Editor() {
     [nodes, setEdges],
   );
 
-  // Reject self-connections and anything that would create a cycle.
+  // Reject self-connections, shape mismatches (a tuple wire into a
+  // scalar input or vice versa) and anything that would create a cycle.
   const isValidConnection: IsValidConnection<Edge> = useCallback(
     (conn) => {
       const { source, target } = conn;
       if (!source || !target || source === target) return false;
+      const sourceNode = nodes.find((n) => n.id === source);
+      const targetNode = nodes.find((n) => n.id === target);
+      if (!sourceNode || !targetNode) return false;
+      if (outputShapeOf(sourceNode.data.kind) !== inputShapeOf(targetNode.data.kind)) return false;
       const adjacency = new Map<string, string[]>();
       for (const e of edges) {
         const list = adjacency.get(e.source);
@@ -202,7 +209,7 @@ function Editor() {
       }
       return true;
     },
-    [edges],
+    [nodes, edges],
   );
 
   const onDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
@@ -262,7 +269,7 @@ function Editor() {
   const styledEdges = useMemo(
     () =>
       edges.map((e) => {
-        const active = (values[e.source] ?? 0) !== 0;
+        const active = anyChannelActive(values[e.source]);
         return {
           ...e,
           animated: active,

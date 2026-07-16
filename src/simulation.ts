@@ -1,5 +1,5 @@
 import type { Edge } from '@xyflow/react';
-import type { DeviceFlowNode, ParamValue } from './types';
+import type { DeviceFlowNode, ParamValue, SimValue } from './types';
 
 /**
  * Runtime state for time-based nodes. The canvas advances `step` at 10
@@ -13,7 +13,7 @@ export interface SimState {
   step: number;
   smoothQueues: Map<string, number[]>;
   randoms: Map<string, number>;
-  sourceSamples: Map<string, { step: number; value: number }>;
+  sourceSamples: Map<string, { step: number; value: SimValue }>;
   booleanizedStates: Map<string, BooleanizedState>;
 }
 
@@ -46,7 +46,7 @@ export function computeValues(
   edges: Edge[],
   sim: SimState,
   advance: boolean,
-): Record<string, number> {
+): Record<string, SimValue> {
   const incoming = new Map<string, string[]>();
   const outgoing = new Map<string, string[]>();
   const indegree = new Map<string, number>();
@@ -65,7 +65,7 @@ export function computeValues(
     indegree.set(e.target, indegree.get(e.target)! + 1);
   }
 
-  const values: Record<string, number> = {};
+  const values: Record<string, SimValue> = {};
   const queue = nodes.filter((n) => indegree.get(n.id) === 0).map((n) => n.id);
   while (queue.length) {
     const id = queue.shift()!;
@@ -100,11 +100,13 @@ export function computeValues(
 
 function nodeValue(
   node: DeviceFlowNode,
-  inputs: number[],
+  rawInputs: SimValue[],
   sim: SimState,
   advance: boolean,
-): number {
+): SimValue {
   const { kind, params, state } = node.data;
+  // scalar view of the inputs; tuple-shaped kinds use rawInputs directly
+  const inputs = rawInputs.map(toNumber);
   switch (kind) {
     case 'button':
       return state.pressed ? 1 : 0;
@@ -122,14 +124,14 @@ function nodeValue(
     case 'buzzer':
       // value is boolean: any truthy (nonzero) source value turns it on
       if (inputs.length === 0) return params.initial_value ? 1 : 0;
-      return readSource(node, inputs[0], sim, advance) !== 0 ? 1 : 0;
+      return toNumber(readSource(node, inputs[0], sim, advance)) !== 0 ? 1 : 0;
     case 'pwmled':
       if (inputs.length === 0) return clamp(Number(params.initial_value ?? 0), 0, 1);
-      return clamp(readSource(node, inputs[0], sim, advance), 0, 1);
+      return clamp(toNumber(readSource(node, inputs[0], sim, advance)), 0, 1);
     case 'servo':
     case 'ledbargraph':
       if (inputs.length === 0) return clamp(Number(params.initial_value ?? 0), -1, 1);
-      return clamp(readSource(node, inputs[0], sim, advance), -1, 1);
+      return clamp(toNumber(readSource(node, inputs[0], sim, advance)), -1, 1);
     case 'angularservo': {
       if (inputs.length === 0) {
         // mirror AngularServo's initial_angle -> Servo value conversion
@@ -138,11 +140,25 @@ function nodeValue(
         if (angularRange === 0) return 0;
         return clamp((2 * (Number(params.initial_angle) - minAngle)) / angularRange - 1, -1, 1);
       }
-      return clamp(readSource(node, inputs[0], sim, advance), -1, 1);
+      return clamp(toNumber(readSource(node, inputs[0], sim, advance)), -1, 1);
     }
     case 'motor':
       if (inputs.length === 0) return 0;
-      return clamp(readSource(node, inputs[0], sim, advance), -1, 1);
+      return clamp(toNumber(readSource(node, inputs[0], sim, advance)), -1, 1);
+    case 'rgbled': {
+      if (rawInputs.length === 0) return [0, 0, 0];
+      const v = readSource(node, rawInputs[0], sim, advance);
+      return channels(v, 3).map((c) => clamp(c, 0, 1));
+    }
+    case 'trafficlights': {
+      // boolean LEDs: any truthy channel value lights that lamp
+      if (rawInputs.length === 0) return [0, 0, 0];
+      const v = readSource(node, rawInputs[0], sim, advance);
+      return channels(v, 3).map((c) => (c !== 0 ? 1 : 0));
+    }
+    case 'zip_values':
+      // one channel per wired source, in connection order
+      return inputs;
     case 'negated':
       if (inputs.length === 0) return 0;
       return inputs[0] !== 0 ? 0 : 1;
@@ -251,7 +267,12 @@ function nodeValue(
  * of 0.01s is faster than the simulation can resolve); longer delays
  * hold the last sampled value until the delay has elapsed on the clock.
  */
-function readSource(node: DeviceFlowNode, input: number, sim: SimState, advance: boolean): number {
+function readSource(
+  node: DeviceFlowNode,
+  input: SimValue,
+  sim: SimState,
+  advance: boolean,
+): SimValue {
   const delaySteps = Math.round(Number(node.data.params.source_delay ?? 0) / TICK_SECONDS);
   if (delaySteps <= 1) {
     sim.sourceSamples.delete(node.id);
@@ -261,6 +282,22 @@ function readSource(node: DeviceFlowNode, input: number, sim: SimState, advance:
   if (last && !(advance && sim.step - last.step >= delaySteps)) return last.value;
   sim.sourceSamples.set(node.id, { step: sim.step, value: input });
   return input;
+}
+
+/** Scalar view of a wire value; tuples collapse to their first channel */
+function toNumber(v: SimValue): number {
+  return Array.isArray(v) ? (v[0] ?? 0) : v;
+}
+
+/** Tuple view of a wire value with exactly n channels (pad 0 / truncate) */
+function channels(v: SimValue, n: number): number[] {
+  const arr = Array.isArray(v) ? v : [v];
+  return Array.from({ length: n }, (_, i) => arr[i] ?? 0);
+}
+
+export function anyChannelActive(v: SimValue | undefined): boolean {
+  if (v === undefined) return false;
+  return Array.isArray(v) ? v.some((c) => c !== 0) : v !== 0;
 }
 
 function periodOf(value: ParamValue | undefined): number {

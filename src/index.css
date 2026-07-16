@@ -349,6 +349,13 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.node-value-tuple {
+  display: inline-block;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .node-body {
   display: flex;
   justify-content: center;
@@ -403,6 +410,47 @@ body {
   border-radius: 50%;
   background: #ef4444;
   border: 1px solid #dc2626;
+}
+
+.rgb-fill {
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  transition: background 0.1s;
+}
+
+/* TrafficLights: a housing with red, amber and green lamps */
+
+.traffic-light {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 6px;
+  background: #374151;
+}
+
+.traffic-lamp {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #1f2937;
+  transition: background 0.1s, box-shadow 0.1s;
+}
+
+.traffic-lamp.red.on {
+  background: #ef4444;
+  box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.7);
+}
+
+.traffic-lamp.amber.on {
+  background: #f59e0b;
+  box-shadow: 0 0 8px 2px rgba(245, 158, 11, 0.7);
+}
+
+.traffic-lamp.green.on {
+  background: #22c55e;
+  box-shadow: 0 0 8px 2px rgba(34, 197, 94, 0.7);
 }
 
 .buzzer {

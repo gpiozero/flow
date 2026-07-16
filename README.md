@@ -22,9 +22,11 @@ Built with Vite, React, TypeScript, and [React Flow](https://reactflow.dev/).
 
 ## Devices supported
 
-Wires carry a single number, so anything with a scalar `value` (0..1 or -1..1) fits the model
-as-is. The main blocker for the rest is composite devices whose `value` is a tuple — those need
-a multi-channel wire design first.
+Wires carry either a single number or a multi-channel tuple. Anything with a scalar `value`
+(0..1 or -1..1) fits the model as-is; composite devices like RGBLED take tuples, built with
+`zip_values`. Connections are shape-checked — a tuple wire can't feed a scalar input or vice
+versa, mirroring what would fail in Python. Remaining ❌ devices are unblocked in principle and
+just need their node designs (per-channel pins, visuals).
 
 | Device | Type | Supported | Notes |
 | --- | --- | --- | --- |
@@ -42,15 +44,15 @@ a multi-channel wire design first.
 | Servo | Output | ✅ | needle sweeps -90° to +90° |
 | AngularServo | Output | ✅ | needle visual is a generic ±90°, not scaled to custom `min_angle`/`max_angle` |
 | Motor | Output | ✅ | two pins, bidirectional bar |
-| RGBLED | Output | ❌ | value is an (r, g, b) tuple — blocked on multi-channel wires |
+| RGBLED | Output | ✅ | colour swatch; source must yield (r, g, b) tuples, e.g. from `zip_values` |
 | TonalBuzzer | Output | ❌ | easy now -1..1 values exist; pairs with WebAudio |
 | PhaseEnableMotor | Output | ❌ | trivial — Motor with a different pin layout |
 | LEDBarGraph | Board | ✅ | scalar value despite being multi-LED; one pin per LED |
-| LEDBoard | Board | ❌ | tuple value — blocked on multi-channel wires |
-| ButtonBoard | Board | ❌ | tuple value — blocked on multi-channel wires |
-| TrafficLights | Board | ❌ | tuple value, though the visual would be lovely |
+| LEDBoard | Board | ❌ | unblocked by tuple wires; needs dynamic pin count like LEDBarGraph |
+| ButtonBoard | Board | ❌ | unblocked by tuple wires; needs a tuple-emitting input widget |
+| TrafficLights | Board | ✅ | red/amber/green lamps; boolean channels in that order |
 | Robot | Board | ❌ | tuple of motor values plus board-level methods |
-| Other boards (FishDish, JamHat, …) | Board | ❌ | mostly tuple values; case-by-case after multi-channel wires |
+| Other boards (FishDish, JamHat, …) | Board | ❌ | mostly tuple values; case-by-case now tuple wires exist |
 | Energenie | Other | ❌ | easy — boolean like LED, socket number instead of pin |
 | CPUTemperature, LoadAverage, DiskUsage | Internal | ❌ | easy — simulated slider inputs |
 | TimeOfDay | Internal | ❌ | easy — boolean derived from a clock |
@@ -82,7 +84,7 @@ a multi-channel wire design first.
 | `summed` | Combiner | ✅ | |
 | `averaged` | Combiner | ✅ | |
 | `multiplied` | Combiner | ✅ | |
-| `zip_values` | Combiner | ❌ | tuple output — blocked on multi-channel wires |
+| `zip_values` | Combiner | ✅ | tuple output; channel order follows wiring order |
 
 ## Device behaviour
 
@@ -124,3 +126,15 @@ cycle takes ~3.6 s, matching gpiozero's defaults (`period=360` at `source_delay=
 Connection semantics mirror gpiozero: an output device's `source` accepts a single wire
 (reconnecting replaces it), combining tools like `all_values` accept many, output devices also
 expose their values so they can chain (LED → LED), and cycles are rejected.
+
+## Multi-channel wires
+
+Wires are shaped: most carry scalars, but `zip_values` emits one channel per wired source (in
+the order the wires were connected) and RGBLED and TrafficLights consume and re-emit 3-tuples.
+Connecting a tuple wire to a scalar input, or a scalar wire to RGBLED/TrafficLights, is
+rejected at draw time — in gpiozero the equivalent would raise at run time. Tuples longer than
+a consumer needs are truncated; shorter ones are padded with 0.
+
+In the generated script a `zip_values` node fed only by devices becomes gpiozero's
+`zip_values(dev1, dev2, …)` (which reads their `values` itself); if any input is an anonymous
+tool expression it falls back to the equivalent builtin `zip(...)` over the value iterators.

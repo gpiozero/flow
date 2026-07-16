@@ -14,7 +14,11 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
   const spec = SPECS[data.kind];
   const { deleteElements } = useReactFlow();
   const { values, updateNodeState } = useFlow();
-  const value = values[id] ?? 0;
+  const raw = values[id] ?? 0;
+  // scalar view for single-channel visuals; tuple set for multi-channel nodes
+  const value = Array.isArray(raw) ? (raw[0] ?? 0) : raw;
+  const tuple = Array.isArray(raw) ? raw : null;
+  const channel = (i: number) => (tuple ? (tuple[i] ?? 0) : 0);
   const pressInfo = useRef<{ wasPressed: boolean; at: number } | null>(null);
 
   const onButtonDown = (e: PointerEvent<HTMLButtonElement>) => {
@@ -111,6 +115,32 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         );
       case 'buzzer':
         return <div className={`buzzer${value !== 0 ? ' buzzing' : ''}`}>♪</div>;
+      case 'rgbled': {
+        const [r, g, b] = [channel(0), channel(1), channel(2)];
+        const on = r > 0 || g > 0 || b > 0;
+        const colour = `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+        return (
+          <div className="led-dot">
+            {on && (
+              <div
+                className="rgb-fill"
+                style={{
+                  background: colour,
+                  boxShadow: `0 0 14px 4px rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, 0.6)`,
+                }}
+              />
+            )}
+          </div>
+        );
+      }
+      case 'trafficlights':
+        return (
+          <div className="traffic-light">
+            <div className={`traffic-lamp red${channel(0) !== 0 ? ' on' : ''}`} />
+            <div className={`traffic-lamp amber${channel(1) !== 0 ? ' on' : ''}`} />
+            <div className={`traffic-lamp green${channel(2) !== 0 ? ' on' : ''}`} />
+          </div>
+        );
       case 'servo':
       case 'angularservo':
         return (
@@ -165,6 +195,10 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         return `pin ${data.params.pin}`;
       case 'motor':
         return `pins ${data.params.forward}/${data.params.backward}`;
+      case 'rgbled':
+        return `pins ${data.params.red}/${data.params.green}/${data.params.blue}`;
+      case 'trafficlights':
+        return `pins ${data.params.red}/${data.params.amber}/${data.params.green}`;
       case 'distancesensor':
         return `pins ${data.params.echo}/${data.params.trigger}`;
       case 'rotaryencoder':
@@ -195,8 +229,16 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
       )}
       <div className="node-header">
         <span className="node-title">{data.name ?? spec.label}</span>
-        <span className={`node-value${spec.valueKind === 'float' ? ' node-value-float' : ''}`}>
-          {spec.valueKind === 'float' ? value.toFixed(2) : value > 0 ? '1' : '0'}
+        <span
+          className={`node-value${tuple ? ' node-value-tuple' : spec.valueKind === 'float' ? ' node-value-float' : ''}`}
+        >
+          {tuple
+            ? `(${tuple.map((c) => (spec.valueKind === 'float' ? c.toFixed(1) : c !== 0 ? '1' : '0')).join(', ')})`
+            : spec.valueKind === 'float'
+              ? value.toFixed(2)
+              : value > 0
+                ? '1'
+                : '0'}
         </span>
       </div>
       <div className="node-body">{body()}</div>

@@ -194,6 +194,41 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
       { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
     ],
   },
+  rgbled: {
+    kind: 'rgbled',
+    label: 'RGBLED',
+    section: 'outputs',
+    description: 'Full colour LED, driven by (r, g, b) tuples',
+    valueKind: 'float',
+    hasInput: true,
+    hasOutput: true,
+    inputShape: 'tuple',
+    outputShape: 'tuple',
+    params: [
+      { name: 'red', label: 'red', type: 'pin', default: 5 },
+      { name: 'green', label: 'green', type: 'pin', default: 6 },
+      { name: 'blue', label: 'blue', type: 'pin', default: 7 },
+      { name: 'active_high', label: 'active_high', type: 'bool', default: true },
+      { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
+    ],
+  },
+  trafficlights: {
+    kind: 'trafficlights',
+    label: 'TrafficLights',
+    section: 'outputs',
+    description: 'Red, amber and green LEDs, driven by 3-tuples',
+    valueKind: 'boolean',
+    hasInput: true,
+    hasOutput: true,
+    inputShape: 'tuple',
+    outputShape: 'tuple',
+    params: [
+      { name: 'red', label: 'red', type: 'pin', default: 14 },
+      { name: 'amber', label: 'amber', type: 'pin', default: 15 },
+      { name: 'green', label: 'green', type: 'pin', default: 16 },
+      { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
+    ],
+  },
   negated: {
     kind: 'negated',
     label: 'negated',
@@ -424,6 +459,18 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     hasOutput: true,
     params: [],
   },
+  zip_values: {
+    kind: 'zip_values',
+    label: 'zip_values',
+    section: 'tools',
+    description: 'Combine sources into multi-channel tuples',
+    valueKind: 'float',
+    hasInput: true,
+    multiInput: true,
+    hasOutput: true,
+    outputShape: 'tuple',
+    params: [],
+  },
 };
 
 export const SECTIONS: { id: Section; title: string; kinds: NodeKind[] }[] = [
@@ -443,7 +490,17 @@ export const SECTIONS: { id: Section; title: string; kinds: NodeKind[] }[] = [
   {
     id: 'outputs',
     title: 'Outputs',
-    kinds: ['led', 'pwmled', 'buzzer', 'servo', 'angularservo', 'motor', 'ledbargraph'],
+    kinds: [
+      'led',
+      'pwmled',
+      'rgbled',
+      'buzzer',
+      'servo',
+      'angularservo',
+      'motor',
+      'ledbargraph',
+      'trafficlights',
+    ],
   },
   {
     id: 'tools',
@@ -463,6 +520,7 @@ export const SECTIONS: { id: Section; title: string; kinds: NodeKind[] }[] = [
       'booleanized',
       'averaged',
       'multiplied',
+      'zip_values',
       'smoothed',
     ],
   },
@@ -498,6 +556,14 @@ export function nextFreeChannel(usedChannels: ReadonlySet<number>): number | nul
 
 /** Valid device name: lowercase letters, digits and underscores, not starting with a digit */
 export const NAME_PATTERN = /^[a-z_][a-z0-9_]*$/;
+
+export function inputShapeOf(kind: NodeKind): 'scalar' | 'tuple' {
+  return SPECS[kind].inputShape ?? 'scalar';
+}
+
+export function outputShapeOf(kind: NodeKind): 'scalar' | 'tuple' {
+  return SPECS[kind].outputShape ?? 'scalar';
+}
 
 export function isDevice(kind: NodeKind): boolean {
   const section = SPECS[kind].section;

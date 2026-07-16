@@ -63,14 +63,23 @@ export function generateScript(nodes: DeviceFlowNode[], edges: Edge[]): string {
     else incoming.set(e.target, [e.source]);
   }
 
+  // gpiozero's zip_values takes device objects (it reads their .values
+  // itself); with anonymous tool expressions in the mix, builtin zip
+  // over the resolved iterators is the equivalent.
+  const allDevices = (ids: string[]) => ids.every((i) => isDevice(nodesById.get(i)!.data.kind));
+
   const exprCache = new Map<string, string>();
   const exprFor = (id: string): string => {
     const cached = exprCache.get(id);
     if (cached !== undefined) return cached;
     const node = nodesById.get(id)!;
-    const expr = isDevice(node.data.kind)
-      ? `${node.data.name}.values`
-      : toolCall(node, (incoming.get(id) ?? []).map(exprFor));
+    const preds = incoming.get(id) ?? [];
+    let expr: string;
+    if (isDevice(node.data.kind)) expr = `${node.data.name}.values`;
+    else if (node.data.kind === 'zip_values' && allDevices(preds))
+      expr = `zip_values(${preds.map((p) => nodesById.get(p)!.data.name).join(', ')})`;
+    else if (node.data.kind === 'zip_values') expr = `zip(${preds.map(exprFor).join(', ')})`;
+    else expr = toolCall(node, preds.map(exprFor));
     exprCache.set(id, expr);
     return expr;
   };
@@ -80,11 +89,15 @@ export function generateScript(nodes: DeviceFlowNode[], edges: Edge[]): string {
   // Tool/source kinds actually reachable from some device's source
   // (unwired ones on the canvas contribute no code, so are left out).
   const usedTools = new Set<NodeKind>();
+  const visited = new Set<string>();
   const markUsed = (id: string) => {
+    if (visited.has(id)) return;
+    visited.add(id);
     const node = nodesById.get(id)!;
     if (isDevice(node.data.kind)) return;
-    if (usedTools.has(node.data.kind)) return;
-    usedTools.add(node.data.kind);
+    // the builtin-zip fallback needs no gpiozero.tools import
+    if (node.data.kind !== 'zip_values' || allDevices(incoming.get(id) ?? []))
+      usedTools.add(node.data.kind);
     for (const pred of incoming.get(id) ?? []) markUsed(pred);
   };
   for (const n of deviceNodes) {

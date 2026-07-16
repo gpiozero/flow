@@ -4,6 +4,9 @@ export type Section = 'inputs' | 'outputs' | 'tools' | 'sources';
 
 export type NodeKind =
   | 'button'
+  | 'rgbled'
+  | 'trafficlights'
+  | 'zip_values'
   | 'pot'
   | 'lightsensor'
   | 'motionsensor'
@@ -40,6 +43,12 @@ export type NodeKind =
 
 export type ParamValue = number | boolean;
 
+/**
+ * What a wire carries: most nodes emit a scalar, but multi-channel
+ * nodes (zip_values, RGBLED, TrafficLights) emit a tuple of channels.
+ */
+export type SimValue = number | number[];
+
 export interface ParamSpec {
   name: string;
   label: string;
@@ -65,6 +74,14 @@ export interface NodeSpec {
   section: Section;
   description: string;
   valueKind: 'boolean' | 'float';
+  /**
+   * Shape of the value on each handle: 'scalar' (the default) or
+   * 'tuple' for multi-channel wires. Connections require matching
+   * shapes, mirroring gpiozero, where e.g. RGBLED's source must yield
+   * (r, g, b) tuples and scalar tools would choke on them.
+   */
+  inputShape?: 'scalar' | 'tuple';
+  outputShape?: 'scalar' | 'tuple';
   hasInput: boolean;
   /** allow more than one incoming connection (e.g. all_values) */
   multiInput?: boolean;
