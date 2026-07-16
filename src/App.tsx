@@ -25,6 +25,7 @@ import { ScriptModal } from './components/ScriptModal';
 import { DRAG_MIME, Sidebar } from './components/Sidebar';
 import { WireEdge } from './components/WireEdge';
 import {
+  PIN_ASSIGN_ORDER,
   SPECS,
   defaultParams,
   defaultState,
@@ -79,6 +80,18 @@ function Editor() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [scriptOpen, setScriptOpen] = useState(false);
+  const [warning, setWarning] = useState<string | null>(null);
+  const warningTimer = useRef<number | undefined>(undefined);
+
+  // Transient warning toast for actions that can't be honoured (e.g.
+  // dropping a device when there aren't enough free pins for it).
+  const showWarning = useCallback((message: string) => {
+    setWarning(message);
+    window.clearTimeout(warningTimer.current);
+    warningTimer.current = window.setTimeout(() => setWarning(null), 5000);
+  }, []);
+
+  useEffect(() => () => window.clearTimeout(warningTimer.current), []);
   const { screenToFlowPosition } = useReactFlow();
   const idCounter = useRef(1);
 
@@ -152,7 +165,12 @@ function Editor() {
             for (const key of wanted) {
               if (!(key in params)) {
                 const pin = nextFreePin(usedPins);
-                if (pin === null) break; // out of pins
+                if (pin === null) {
+                  showWarning(
+                    `Not enough free GPIO pins — LED count capped at ${count}`,
+                  );
+                  break;
+                }
                 params[key] = pin;
                 usedPins.add(pin);
               }
@@ -164,7 +182,7 @@ function Editor() {
         });
       });
     },
-    [setNodes],
+    [setNodes, showWarning],
   );
 
   const flowContext = useMemo(() => ({ values, updateNodeState }), [values, updateNodeState]);
@@ -224,9 +242,19 @@ function Editor() {
       if (!kind || !(kind in SPECS)) return;
       const params = defaultParams(kind);
       const usedPins = pinsInUse(nodes);
-      for (const name of requiredPinParams(kind, params)) {
+      const neededPins = requiredPinParams(kind, params);
+      const freePins = PIN_ASSIGN_ORDER.length - usedPins.size;
+      if (neededPins.length > freePins) {
+        showWarning(
+          `${SPECS[kind].label} needs ${neededPins.length} free GPIO ` +
+            `pin${neededPins.length === 1 ? '' : 's'}, but ` +
+            `${freePins === 0 ? 'none are' : freePins === 1 ? 'only 1 is' : `only ${freePins} are`} left`,
+        );
+        return;
+      }
+      for (const name of neededPins) {
         const pin = nextFreePin(usedPins);
-        if (pin === null) return; // every GPIO pin is taken
+        if (pin === null) return; // unreachable: checked above
         params[name] = pin;
         usedPins.add(pin);
       }
@@ -234,7 +262,10 @@ function Editor() {
       for (const p of SPECS[kind].params) {
         if (p.type !== 'channel') continue;
         const channel = nextFreeChannel(usedChannels);
-        if (channel === null) return; // all 8 ADC channels are taken
+        if (channel === null) {
+          showWarning(`${SPECS[kind].label} needs a free ADC channel, but all 8 are in use`);
+          return;
+        }
         params[p.name] = channel;
         usedChannels.add(channel);
       }
@@ -251,7 +282,7 @@ function Editor() {
       };
       setNodes((ns) => [...ns, node]);
     },
-    [nodes, screenToFlowPosition, setNodes],
+    [nodes, screenToFlowPosition, setNodes, showWarning],
   );
 
   const onSelectionChange = useCallback(({ nodes: selected }: OnSelectionChangeParams) => {
@@ -315,6 +346,18 @@ function Editor() {
         <div className="workspace">
           <Sidebar />
           <div className="canvas" onDrop={onDrop} onDragOver={onDragOver}>
+            {warning && (
+              <div className="canvas-warning" role="alert">
+                <span>⚠ {warning}</span>
+                <button
+                  className="canvas-warning-close"
+                  aria-label="Dismiss warning"
+                  onClick={() => setWarning(null)}
+                >
+                  ×
+                </button>
+              </div>
+            )}
             <ReactFlow
               nodes={nodes}
               edges={styledEdges}
