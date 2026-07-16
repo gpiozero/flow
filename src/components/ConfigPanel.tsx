@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { GPIO_PINS, MCP_CHANNELS, NAME_PATTERN, SPECS, requiredPinParams } from '../catalog';
+import { deviceConstructor, toolCall } from '../codegen';
 import type { DeviceFlowNode, ParamValue } from '../types';
 
 interface Props {
@@ -179,40 +180,13 @@ function NameField({
   );
 }
 
+// Isolated single-node preview: for anonymous tools/sources this can't
+// know the real wiring, so it stands a literal `values` placeholder in
+// for whatever's actually connected (see codegen.ts for the full thing).
 function preview(node: DeviceFlowNode): string {
   const spec = SPECS[node.data.kind];
-  const params = node.data.params;
   if (spec.section === 'tools' || spec.section === 'sources') {
-    const args = spec.hasInput ? ['values'] : [];
-    for (const p of spec.params) {
-      if (params[p.name] !== p.default) args.push(`${p.name}=${pyLiteral(params[p.name])}`);
-    }
-    return `${spec.label}(${args.join(', ')})`;
+    return toolCall(node, spec.hasInput ? ['values'] : []);
   }
-  const varName = node.data.name ?? node.data.kind;
-  const args: string[] = [];
-  const attrs: string[] = [];
-  // dynamic pin lists (LEDBarGraph's *pins) come first, positionally
-  if (spec.dynamicPins) {
-    for (const key of requiredPinParams(node.data.kind, params)) {
-      args.push(pyLiteral(params[key]));
-    }
-  }
-  spec.params.forEach((p, i) => {
-    if (p.omit) return;
-    const value = params[p.name];
-    // attributes like source_delay are set after construction
-    if (p.attr) {
-      if (value !== p.default) attrs.push(`${varName}.${p.name} = ${pyLiteral(value)}`);
-      return;
-    }
-    if (i === 0) args.push(pyLiteral(value));
-    else if (p.type === 'pin' || value !== p.default) args.push(`${p.name}=${pyLiteral(value)}`);
-  });
-  return [`${varName} = ${spec.label}(${args.join(', ')})`, ...attrs].join('\n');
-}
-
-function pyLiteral(value: ParamValue): string {
-  if (typeof value === 'boolean') return value ? 'True' : 'False';
-  return String(value);
+  return deviceConstructor(node);
 }

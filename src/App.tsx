@@ -21,6 +21,7 @@ import '@xyflow/react/dist/style.css';
 
 import { ConfigPanel } from './components/ConfigPanel';
 import { DeviceNode } from './components/DeviceNode';
+import { ScriptModal } from './components/ScriptModal';
 import { DRAG_MIME, Sidebar } from './components/Sidebar';
 import { WireEdge } from './components/WireEdge';
 import {
@@ -75,6 +76,7 @@ function Editor() {
   const [nodes, setNodes, onNodesChange] = useNodesState<DeviceFlowNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [scriptOpen, setScriptOpen] = useState(false);
   const { screenToFlowPosition } = useReactFlow();
   const idCounter = useRef(1);
 
@@ -296,7 +298,13 @@ function Editor() {
         <header className="topbar">
           <h1>gpiozero flow</h1>
           <span className="topbar-note">MVP — simulated in the browser, no real GPIO</span>
+          <button className="topbar-script" onClick={() => setScriptOpen(true)}>
+            View Python script
+          </button>
         </header>
+        {scriptOpen && (
+          <ScriptModal nodes={nodes} edges={edges} onClose={() => setScriptOpen(false)} />
+        )}
         <div className="workspace">
           <Sidebar />
           <div className="canvas" onDrop={onDrop} onDragOver={onDragOver}>

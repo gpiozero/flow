@@ -50,6 +50,115 @@ body {
   color: var(--c-muted);
 }
 
+.topbar-script {
+  margin-left: auto;
+  padding: 6px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.topbar-script:hover {
+  background: var(--c-panel);
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 18, 23, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  width: min(720px, 90vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.modal-close {
+  border: none;
+  background: none;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--c-muted);
+  padding: 2px 6px;
+}
+
+.modal-close:hover {
+  color: var(--c-text);
+}
+
+.modal-code {
+  margin: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.modal-filename {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: auto;
+  font-size: 13px;
+  color: var(--c-muted);
+}
+
+.modal-filename input {
+  width: 160px;
+  padding: 6px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.modal-download {
+  padding: 7px 14px;
+  border: none;
+  border-radius: 6px;
+  background: var(--c-outputs);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.modal-download:hover {
+  filter: brightness(1.08);
+}
+
 .workspace {
   flex: 1;
   display: flex;
