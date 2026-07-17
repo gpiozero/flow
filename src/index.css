@@ -707,6 +707,90 @@ body {
   background: #334155;
 }
 
+/* icon stacked above the slider that drives the device */
+
+.widget-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Potentiometer: a trim pot whose screwdriver slot turns with the level */
+
+.pot-icon {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f1f5f9, #cbd5e1 75%);
+  border: 1px solid #94a3b8;
+}
+
+.pot-slot {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 50%;
+  width: 3px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: #64748b;
+  transition: transform 0.1s;
+}
+
+/* DistanceSensor: an HC-SR04 with a target sitting at the measured
+   distance along a dashed sight line */
+
+.sonar {
+  position: relative;
+  width: 110px;
+  height: 24px;
+}
+
+.sonar::before {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 3px;
+  top: 50%;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.sonar-board {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 12px;
+  height: 24px;
+  border-radius: 2px;
+  background: #1e3a8a;
+}
+
+/* the two transducer cans, seen edge-on */
+.sonar-board::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #e2e8f0, #94a3b8 75%);
+  box-shadow: 0 10px 0 #94a3b8;
+}
+
+.sonar-target {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  border-radius: 2px;
+  background: #334155;
+  transition: left 0.05s;
+}
+
 /* Servo: a micro servo from above — blue body, mounting ears with
    screw holes, offset output shaft, and a horn swinging with the value
    (straight up at 0, +90° clockwise at 1) */

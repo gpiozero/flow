@@ -167,18 +167,43 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         );
       case 'pot':
       case 'lightsensor':
-      case 'distancesensor':
-        return (
+      case 'distancesensor': {
+        const level = Number(data.state.level ?? 0);
+        const slider = (
           <input
             type="range"
             className="nodrag"
             min={0}
             max={1}
             step={0.01}
-            value={Number(data.state.level ?? 0)}
+            value={level}
             onChange={(e) => updateNodeState(id, { level: Number(e.target.value) })}
           />
         );
+        if (data.kind === 'pot')
+          return (
+            <div className="widget-stack">
+              <div className="pot-icon">
+                <div
+                  className="pot-slot"
+                  style={{ transform: `rotate(${(level - 0.5) * 270}deg)` }}
+                />
+              </div>
+              {slider}
+            </div>
+          );
+        if (data.kind === 'distancesensor')
+          return (
+            <div className="widget-stack">
+              <div className="sonar">
+                <div className="sonar-board" />
+                <div className="sonar-target" style={{ left: `${16 + level * 91}px` }} />
+              </div>
+              {slider}
+            </div>
+          );
+        return slider;
+      }
       case 'rotaryencoder':
         return (
           <div
