@@ -51,10 +51,10 @@ export function Sidebar() {
       <input
         type="search"
         className="sidebar-search"
-        placeholder="Search devices…"
+        placeholder="Search…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        aria-label="Search devices"
+        aria-label="Search"
       />
       {needle && visibleSections.length === 0 ? (
         <p className="sidebar-hint">No devices match "{query.trim()}".</p>
