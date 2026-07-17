@@ -21,6 +21,8 @@ export type NodeKind =
   | 'angularservo'
   | 'motor'
   | 'ledbargraph'
+  | 'ledboard'
+  | 'buttonboard'
   | 'negated'
   | 'inverted'
   | 'all_values'
@@ -91,8 +93,12 @@ export interface NodeSpec {
   hasOutput: boolean;
   /** value depends on the simulation clock, not just on inputs */
   timeBased?: boolean;
-  /** takes a variable-length pin list (pin1..pinN params) sized by the `leds` param */
-  dynamicPins?: boolean;
+  /**
+   * Takes a variable-length pin list (pin1..pinN params), sized by the
+   * named count param (e.g. 'leds' for LEDBarGraph, 'buttons' for
+   * ButtonBoard).
+   */
+  dynamicPins?: string;
   params: ParamSpec[];
   /** interactive state for simulation, e.g. { pressed: false } */
   initialState?: Record<string, ParamValue>;

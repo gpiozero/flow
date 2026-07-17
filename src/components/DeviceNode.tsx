@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { PointerEvent, ReactElement } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
-import { SPECS, barGraphLeds } from '../catalog';
+import { SPECS, dynamicPinCount } from '../catalog';
 import { useFlow } from '../store';
 import type { DeviceFlowNode, NodeKind } from '../types';
 
@@ -345,8 +345,49 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
             <div className="motor-hub" />
           </div>
         );
+      case 'buttonboard':
+        return (
+          <div className="board-row">
+            {Array.from({ length: dynamicPinCount(data.kind, data.params) }, (_, i) => {
+              const key = `pressed${i + 1}`;
+              return (
+                <button
+                  key={i}
+                  className={`tactile-button mini nodrag${data.state[key] ? ' pressed' : ''}`}
+                  title="Click to toggle"
+                  aria-pressed={Boolean(data.state[key])}
+                  aria-label={`button ${i + 1}`}
+                  onClick={() => updateNodeState(id, { [key]: !data.state[key] })}
+                >
+                  <span className="tactile-cap" />
+                </button>
+              );
+            })}
+          </div>
+        );
+      case 'ledboard':
+        return (
+          <div className="board-row">
+            {Array.from({ length: dynamicPinCount(data.kind, data.params) }, (_, i) => {
+              const brightness = channel(i);
+              if (!data.params.pwm)
+                return <div key={i} className={`led-dot small${brightness !== 0 ? ' lit' : ''}`} />;
+              return (
+                <div key={i} className="led-dot small">
+                  <div
+                    className="pwm-fill"
+                    style={{
+                      opacity: brightness,
+                      boxShadow: `0 0 ${8 * brightness}px ${2 * brightness}px rgba(239, 68, 68, ${0.6 * brightness})`,
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        );
       case 'ledbargraph': {
-        const leds = barGraphLeds(data.params);
+        const leds = dynamicPinCount(data.kind, data.params);
         const mag = Math.abs(value) * leds;
         return (
           <div className="bar-graph">
@@ -399,7 +440,10 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
       case 'rotaryencoder':
         return `pins ${data.params.a}/${data.params.b}`;
       case 'ledbargraph':
+      case 'ledboard':
         return `${data.params.leds} leds`;
+      case 'buttonboard':
+        return `${data.params.buttons} buttons`;
       case 'pot':
         return `channel ${data.params.channel}`;
       default:

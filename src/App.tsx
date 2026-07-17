@@ -27,7 +27,7 @@ import { WireEdge } from './components/WireEdge';
 import {
   PIN_ASSIGN_ORDER,
   SPECS,
-  barGraphLeds,
+  dynamicPinCount,
   defaultParams,
   defaultState,
   inputShapeOf,
@@ -147,7 +147,7 @@ function Editor() {
     [setNodes],
   );
 
-  // Changing a dynamic-pin device's led count grows or shrinks its
+  // Changing a dynamic-pin device's count param grows or shrinks its
   // pin1..pinN params, assigning free pins to new entries. The stored
   // count is canonicalised to however many pins could be assigned.
   const updateNodeParam = useCallback(
@@ -157,7 +157,7 @@ function Editor() {
         return ns.map((n) => {
           if (n.id !== id) return n;
           const params = { ...n.data.params, [name]: value };
-          if (SPECS[n.data.kind].dynamicPins && name === 'leds') {
+          if (SPECS[n.data.kind].dynamicPins === name) {
             const wanted = requiredPinParams(n.data.kind, params);
             for (const key of Object.keys(params)) {
               if (/^pin\d+$/.test(key) && !wanted.includes(key)) delete params[key];
@@ -168,7 +168,7 @@ function Editor() {
                 const pin = nextFreePin(usedPins);
                 if (pin === null) {
                   showWarning(
-                    `Not enough free GPIO pins — LED count capped at ${count}`,
+                    `Not enough free GPIO pins — ${name} capped at ${count}`,
                   );
                   break;
                 }
@@ -177,7 +177,7 @@ function Editor() {
               }
               count++;
             }
-            params.leds = count;
+            params[name] = count;
           }
           return { ...n, data: { ...n.data, params } };
         });
@@ -251,11 +251,12 @@ function Editor() {
       const params = base ? { ...base.params } : defaultParams(kind);
       const usedPins = pinsInUse(nodes);
       const freePins = PIN_ASSIGN_ORDER.length - usedPins.size;
-      if (SPECS[kind].dynamicPins && freePins >= 1 && barGraphLeds(params) > freePins) {
-        params.leds = freePins;
+      const countParam = SPECS[kind].dynamicPins;
+      if (countParam && freePins >= 1 && dynamicPinCount(kind, params) > freePins) {
+        params[countParam] = freePins;
         showWarning(
           `Only ${freePins} free GPIO pin${freePins === 1 ? '' : 's'} — ` +
-            `${SPECS[kind].label} created with ${freePins} LED${freePins === 1 ? '' : 's'}`,
+            `${SPECS[kind].label} created with ${countParam} = ${freePins}`,
         );
       }
       const neededPins = requiredPinParams(kind, params);

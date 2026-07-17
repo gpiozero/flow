@@ -1,5 +1,5 @@
 import type { Edge } from '@xyflow/react';
-import { barGraphLeds } from './catalog';
+import { dynamicPinCount } from './catalog';
 import type { DeviceFlowNode, ParamValue, SimValue } from './types';
 
 /**
@@ -119,6 +119,11 @@ function nodeValue(
       return state.motion ? 1 : 0;
     case 'linesensor':
       return state.detected ? 1 : 0;
+    case 'buttonboard':
+      // one boolean channel per button, in pin order
+      return Array.from({ length: dynamicPinCount(kind, params) }, (_, i) =>
+        state[`pressed${i + 1}`] ? 1 : 0,
+      );
     case 'rotaryencoder': {
       // value = steps / max_steps; with max_steps=0 steps are unbounded
       // and value is always 0, as in gpiozero
@@ -150,7 +155,7 @@ function nodeValue(
       if (params.pwm) return v;
       // non-PWM value reads back as lit/total, as in gpiozero (an LED
       // only lights when the value fully covers it)
-      const n = barGraphLeds(params);
+      const n = dynamicPinCount(kind, params);
       return (Math.sign(v) * Math.floor(Math.abs(v) * n + 1e-9)) / n;
     }
     case 'angularservo': {
@@ -172,6 +177,14 @@ function nodeValue(
       if (rawInputs.length === 0) return [0, 0, 0];
       const v = readSource(node, rawInputs[0], sim, advance);
       return channels(v, 3).map((c) => (params.pwm ? clamp(c, 0, 1) : c !== 0 ? 1 : 0));
+    }
+    case 'ledboard': {
+      // like TrafficLights but with as many channels as LEDs; unwired,
+      // initial_value sets the whole bank
+      const n = dynamicPinCount(kind, params);
+      if (rawInputs.length === 0) return Array(n).fill(params.initial_value ? 1 : 0);
+      const v = readSource(node, rawInputs[0], sim, advance);
+      return channels(v, n).map((c) => (params.pwm ? clamp(c, 0, 1) : c !== 0 ? 1 : 0));
     }
     case 'trafficlights': {
       // boolean LEDs: any truthy channel value lights that lamp;

@@ -48,8 +48,8 @@ just need their node designs (per-channel pins, visuals).
 | TonalBuzzer | Output | ✅ | shows the note being played; actual WebAudio sound would be a fun follow-up |
 | PhaseEnableMotor | Output | ❌ | trivial — Motor with a different pin layout |
 | LEDBarGraph | Board | ✅ | scalar value despite being multi-LED; one pin per LED; `pwm=True` dims the partially-covered LED, without it the value reads back quantized to lit/total |
-| LEDBoard | Board | ❌ | unblocked by tuple wires; needs dynamic pin count like LEDBarGraph |
-| ButtonBoard | Board | ❌ | unblocked by tuple wires; needs a tuple-emitting input widget |
+| LEDBoard | Board | ✅ | bank of 1-10 LEDs, one tuple channel each; `pwm=True` dims fractionally |
+| ButtonBoard | Board | ✅ | bank of 1-10 buttons emitting a boolean tuple; wires straight into LEDBoard |
 | TrafficLights | Board | ✅ | red/amber/green lamps; boolean channels in that order, or fractional dimming with `pwm=True` |
 | Robot | Board | ❌ | tuple of motor values plus board-level methods |
 | Other boards (FishDish, JamHat, …) | Board | ❌ | mostly tuple values; case-by-case now tuple wires exist |
@@ -144,9 +144,10 @@ expose their values so they can chain (LED → LED), and cycles are rejected.
 
 ## Multi-channel wires
 
-Wires are shaped: most carry scalars, but `zip_values` emits one channel per wired source (in
-the order the wires were connected) and RGBLED and TrafficLights consume and re-emit 3-tuples.
-Connecting a tuple wire to a scalar input, or a scalar wire to RGBLED/TrafficLights, is
+Wires are shaped: most carry scalars, but `zip_values` and ButtonBoard emit one channel per
+source/button, RGBLED and TrafficLights consume and re-emit 3-tuples, and LEDBoard consumes
+and re-emits one channel per LED.
+Connecting a tuple wire to a scalar input, or a scalar wire to a tuple consumer, is
 rejected at draw time — in gpiozero the equivalent would raise at run time. Tuples longer than
 a consumer needs are truncated; shorter ones are padded with 0.
 
