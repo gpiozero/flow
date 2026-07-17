@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
-import type { PointerEvent } from 'react';
+import type { PointerEvent, ReactElement } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { SPECS, barGraphLeds } from '../catalog';
 import { useFlow } from '../store';
-import type { DeviceFlowNode } from '../types';
+import type { DeviceFlowNode, NodeKind } from '../types';
 
 // Pointer-downs shorter than this toggle the button; longer ones act
 // as a momentary hold that releases on pointer-up.
@@ -15,6 +15,22 @@ const DEG_PER_STEP = 18;
 
 // Motor wheel speed at full value: one revolution per second
 const WHEEL_DEG_PER_SEC = 360;
+
+const waveIcon = (d: string) => (
+  <svg className="wave-icon" viewBox="0 0 40 16" aria-hidden="true">
+    <path d={d} />
+  </svg>
+);
+
+// each artificial source shows the waveform it emits
+const SOURCE_ICONS: Partial<Record<NodeKind, ReactElement>> = {
+  sin_values: waveIcon('M0 8 Q5 -2 10 8 Q15 18 20 8 Q25 -2 30 8 Q35 18 40 8'),
+  // the sine path shifted a quarter period, so it starts on a peak
+  cos_values: waveIcon('M0 3 Q2.5 3 5 8 Q10 18 15 8 Q20 -2 25 8 Q30 18 35 8 Q37.5 3 40 3'),
+  alternating_values: waveIcon('M0 12 H5 V4 H15 V12 H25 V4 H35 V12 H40'),
+  ramping_values: waveIcon('M0 12 L10 4 L20 12 L30 4 L40 12'),
+  random_values: waveIcon('M0 8 L4 3 L8 11 L12 5 L16 13 L20 4 L24 9 L28 2 L32 10 L36 6 L40 8'),
+};
 
 export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<DeviceFlowNode>) {
   const spec = SPECS[data.kind];
@@ -278,7 +294,11 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         );
       }
       default:
-        return <div className="tool-fn">{spec.section === 'sources' ? '∿' : 'ƒ(x)'}</div>;
+        return (
+          <div className="tool-fn">
+            {spec.section === 'sources' ? (SOURCE_ICONS[data.kind] ?? '∿') : 'ƒ(x)'}
+          </div>
+        );
     }
   };
 
