@@ -52,11 +52,18 @@ just need their node designs (per-channel pins, visuals).
 | ButtonBoard | Board | ✅ | bank of 1-10 buttons emitting a boolean tuple; wires straight into LEDBoard |
 | TrafficLights | Board | ✅ | red/amber/green lamps; boolean channels in that order, or fractional dimming with `pwm=True` |
 | Robot | Board | ✅ | (left, right) speed tuples; wheels spin independently; board-level methods (forward, left, …) don't exist here — steer via the source |
-| Other boards (FishDish, JamHat, …) | Board | ❌ | mostly tuple values; case-by-case now tuple wires exist |
 | Energenie | Other | ❌ | easy — boolean like LED, socket number instead of pin |
 | CPUTemperature, LoadAverage, DiskUsage | Internal | ❌ | easy — simulated slider inputs |
 | TimeOfDay | Internal | ❌ | easy — boolean derived from a clock |
 | PingServer | Internal | ❌ | easy — a toggle standing in for reachability |
+
+Composite HATs (TrafficHat, FishDish, JamHat, Pibrella, …) are deliberately not included:
+they're just fixed arrangements of the base components above, and their nested values sit
+awkwardly on flat wires — one wire would have to drive lights, buzzer and ignore the onboard
+button at once. Building the same thing from parts (say a TrafficLights, a Buzzer and a
+Button, wired however you like) fits the node model better and isn't tied to the boards'
+fixed pins. If real-hardware support arrives, revisit — on a physical HAT the composite
+class is what you'd actually construct.
 
 ## Source tools supported
 
