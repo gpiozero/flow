@@ -1,10 +1,21 @@
 import type { Edge } from '@xyflow/react';
 import { SPECS, isDevice, requiredPinParams } from './catalog';
-import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
+import type { DeviceFlowNode, NodeKind, ParamSpec, ParamValue } from './types';
 
 export function pyLiteral(value: ParamValue): string {
   if (typeof value === 'boolean') return value ? 'True' : 'False';
+  if (typeof value === 'string')
+    return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
   return String(value);
+}
+
+/** A param's Python value: time params become datetime.time literals */
+function pyParam(p: ParamSpec, value: ParamValue): string {
+  if (p.type === 'time') {
+    const [h, m] = String(value).split(':').map(Number);
+    return `time(${h || 0}, ${m || 0})`;
+  }
+  return pyLiteral(value);
 }
 
 /** `varname = Class(args...)` plus any attr params (e.g. source_delay) on their own lines. */
@@ -39,8 +50,11 @@ export function deviceConstructor(node: DeviceFlowNode): string {
       return;
     }
     const isPin = p.type === 'pin' || p.type === 'channel';
-    if (i === 0 && pinCount <= 1 && p.type !== 'channel') args.push(pyLiteral(value));
-    else if (isPin || value !== p.default) args.push(`${p.name}=${pyLiteral(value)}`);
+    if (i === 0 && pinCount <= 1 && p.type === 'pin') args.push(pyLiteral(value));
+    else if (p.positional) {
+      if (p.required || value !== p.default) args.push(pyParam(p, value));
+    } else if (isPin || p.required || value !== p.default)
+      args.push(`${p.name}=${pyParam(p, value)}`);
   });
   return [`${varName} = ${spec.label}(${args.join(', ')})`, ...attrs].join('\n');
 }
@@ -132,6 +146,9 @@ export function generateScript(nodes: DeviceFlowNode[], edges: Edge[]): string {
   const toolImports = [...usedTools].map((k) => SPECS[k].label).sort();
 
   const lines: string[] = [];
+  // TimeOfDay's start/end params are datetime.time instances
+  if (deviceNodes.some((n) => SPECS[n.data.kind].params.some((p) => p.type === 'time')))
+    lines.push('from datetime import time');
   if (deviceImports.length) lines.push(`from gpiozero import ${deviceImports.join(', ')}`);
   if (toolImports.length) lines.push(`from gpiozero.tools import ${toolImports.join(', ')}`);
   lines.push('from signal import pause');

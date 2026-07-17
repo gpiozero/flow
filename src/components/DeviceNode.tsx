@@ -178,7 +178,10 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         );
       case 'pot':
       case 'lightsensor':
-      case 'distancesensor': {
+      case 'distancesensor':
+      case 'cputemperature':
+      case 'loadaverage':
+      case 'diskusage': {
         const level = Number(data.state.level ?? 0);
         const slider = (
           <input
@@ -213,6 +216,45 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
               {slider}
             </div>
           );
+        if (data.kind === 'cputemperature')
+          return (
+            <div className="widget-stack">
+              <div className="thermo">
+                <div className="thermo-fill" style={{ height: `${level * 100}%` }} />
+              </div>
+              {slider}
+            </div>
+          );
+        if (data.kind === 'loadaverage')
+          return (
+            <div className="widget-stack">
+              <div className="load-bars">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="load-bar">
+                    <div
+                      className="load-fill"
+                      style={{ height: `${Math.min(1, Math.max(0, level * 3 - i)) * 100}%` }}
+                    />
+                  </div>
+                ))}
+              </div>
+              {slider}
+            </div>
+          );
+        if (data.kind === 'diskusage')
+          return (
+            <div className="widget-stack">
+              <div
+                className="disk-donut"
+                style={{
+                  background: `conic-gradient(#f59e0b ${level * 360}deg, #e2e8f0 0deg)`,
+                }}
+              >
+                <div className="disk-hole" />
+              </div>
+              {slider}
+            </div>
+          );
         return (
           <div className="widget-stack">
             <div className="light-sun">
@@ -223,6 +265,44 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
           </div>
         );
       }
+      case 'pingserver':
+        return (
+          <button
+            className={`ping-server nodrag${data.state.up ? ' up' : ''}`}
+            title="Click to toggle reachability"
+            aria-pressed={Boolean(data.state.up)}
+            aria-label="host reachable"
+            onClick={() => updateNodeState(id, { up: !data.state.up })}
+          >
+            <span className="ping-slot" />
+            <span className="ping-slot" />
+            <span className="ping-led" />
+          </button>
+        );
+      case 'timeofday': {
+        // a live clock face; the dial glows while inside the window
+        const now = new Date();
+        const h = data.params.utc ? now.getUTCHours() : now.getHours();
+        const m = data.params.utc ? now.getUTCMinutes() : now.getMinutes();
+        return (
+          <div className={`clock${value > 0 ? ' active' : ''}`}>
+            <div
+              className="clock-hand hour"
+              style={{ transform: `rotate(${(h % 12) * 30 + m / 2}deg)` }}
+            />
+            <div className="clock-hand minute" style={{ transform: `rotate(${m * 6}deg)` }} />
+          </div>
+        );
+      }
+      case 'energenie':
+        // a BS 1363 plug face: earth pin up top, live/neutral below
+        return (
+          <div className={`uk-plug${value > 0 ? ' on' : ''}`}>
+            <span className="plug-pin earth" />
+            <span className="plug-pin live" />
+            <span className="plug-pin neutral" />
+          </div>
+        );
       case 'rotaryencoder':
         return (
           <div
@@ -346,6 +426,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         );
       }
       case 'motor':
+      case 'phaseenablemotor':
         return <MotorWheel speed={value} />;
       case 'robot':
         return (
@@ -441,6 +522,24 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         return `pin ${data.params.pin}`;
       case 'motor':
         return `pins ${data.params.forward}/${data.params.backward}`;
+      case 'phaseenablemotor':
+        return `pins ${data.params.phase}/${data.params.enable}`;
+      case 'energenie':
+        return `socket ${data.params.socket}`;
+      case 'cputemperature': {
+        const min = Number(data.params.min_temp);
+        return `${(min + value * (Number(data.params.max_temp) - min)).toFixed(1)}°C`;
+      }
+      case 'loadaverage': {
+        const min = Number(data.params.min_load_average);
+        return `load ${(min + value * (Number(data.params.max_load_average) - min)).toFixed(2)}`;
+      }
+      case 'diskusage':
+        return `${data.params.filesystem} ${(value * 100).toFixed(0)}% full`;
+      case 'timeofday':
+        return `${data.params.start_time}–${data.params.end_time} ${data.params.utc ? 'UTC' : 'local'}`;
+      case 'pingserver':
+        return `${data.params.host}`;
       case 'robot':
         return `pins ${data.params.left_forward}/${data.params.left_backward}, ${data.params.right_forward}/${data.params.right_backward}`;
       case 'rgbled':

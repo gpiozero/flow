@@ -101,6 +101,29 @@ export function ConfigPanel({
                     </option>
                   ))}
                 </select>
+              ) : p.choices ? (
+                <select
+                  value={Number(value)}
+                  onChange={(e) => onChangeParam(node.id, p.name, Number(e.target.value))}
+                >
+                  {p.choices.map((choice) => (
+                    <option key={choice} value={choice}>
+                      {choice}
+                    </option>
+                  ))}
+                </select>
+              ) : p.type === 'text' ? (
+                <input
+                  type="text"
+                  value={String(value)}
+                  onChange={(e) => onChangeParam(node.id, p.name, e.target.value)}
+                />
+              ) : p.type === 'time' ? (
+                <input
+                  type="time"
+                  value={String(value)}
+                  onChange={(e) => e.target.value && onChangeParam(node.id, p.name, e.target.value)}
+                />
               ) : p.type === 'bool' ? (
                 <input
                   type="checkbox"

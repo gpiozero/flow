@@ -46,16 +46,16 @@ just need their node designs (per-channel pins, visuals).
 | Motor | Output | ✅ | two pins; wheel spins with speed and direction |
 | RGBLED | Output | ✅ | colour swatch; source must yield (r, g, b) tuples, e.g. from `zip_values`; `pwm=False` snaps to the 8 primary/secondary colours |
 | TonalBuzzer | Output | ✅ | shows the note being played; actual WebAudio sound would be a fun follow-up |
-| PhaseEnableMotor | Output | ❌ | trivial — Motor with a different pin layout |
+| PhaseEnableMotor | Output | ✅ | Motor's spinning wheel with `phase`/`enable` pins |
 | LEDBarGraph | Board | ✅ | scalar value despite being multi-LED; one pin per LED; `pwm=True` dims the partially-covered LED, without it the value reads back quantized to lit/total |
 | LEDBoard | Board | ✅ | bank of 1-10 LEDs, one tuple channel each; `pwm=True` dims fractionally |
 | ButtonBoard | Board | ✅ | bank of 1-10 buttons emitting a boolean tuple; wires straight into LEDBoard |
 | TrafficLights | Board | ✅ | red/amber/green lamps; boolean channels in that order, or fractional dimming with `pwm=True` |
 | Robot | Board | ✅ | (left, right) speed tuples; wheels spin independently; board-level methods (forward, left, …) don't exist here — steer via the source |
-| Energenie | Other | ❌ | easy — boolean like LED, socket number instead of pin |
-| CPUTemperature, LoadAverage, DiskUsage | Internal | ❌ | easy — simulated slider inputs |
-| TimeOfDay | Internal | ❌ | easy — boolean derived from a clock |
-| PingServer | Internal | ❌ | easy — a toggle standing in for reachability |
+| Energenie | Other | ✅ | sockets 1-4; a British plug face whose pins glow while energised |
+| CPUTemperature, LoadAverage, DiskUsage | Internal | ✅ | simulated with sliders; subtitles show the reading in real units (°C, load, % full) |
+| TimeOfDay | Internal | ✅ | reads the actual wall clock (UTC or local); live clock face, glows inside the window; ranges may cross midnight |
+| PingServer | Internal | ✅ | toggle stands in for reachability |
 
 Composite HATs (TrafficHat, FishDish, JamHat, Pibrella, …) are deliberately not included:
 they're just fixed arrangements of the base components above, and their nested values sit
@@ -104,9 +104,15 @@ Output devices have a `source_delay` (default 0.01 s, as in gpiozero), set as an
 the code preview. Delays longer than one simulation tick make the device hold its last value
 and re-read its source only when the delay elapses.
 
-Most devices' values range 0..1; Servo, Motor and LEDBarGraph range -1..1, which pairs
-naturally with `sin_values` and `cos_values`. Boolean devices follow Python truthiness: any
-nonzero source value counts as on.
+Most devices' values range 0..1; Servo, Motor, PhaseEnableMotor and LEDBarGraph range -1..1,
+which pairs naturally with `sin_values` and `cos_values`. Boolean devices follow Python
+truthiness: any nonzero source value counts as on.
+
+Internal devices live in their own drawer: the three system gauges are sliders whose subtitles
+read in real units, TimeOfDay follows the actual wall clock (so its value only flips when the
+real time crosses the window), and none of them occupy GPIO pins. Their extra param types —
+strings (PingServer's `host`, DiskUsage's `filesystem`) and times (TimeOfDay's window, emitted
+as `datetime.time(...)` with the import added) — flow through to the generated script.
 
 Remove a node with the × in its corner (shown on hover/select), the **Delete node** button in
 the config panel, or Delete/Backspace; wires go with it. Wires can be removed with their own ×
@@ -128,8 +134,10 @@ channel from 0-7.
 
 **Known issue (matters once we target real hardware):** the MCP3008 talks over the SPI bus,
 so constructing one in gpiozero reserves GPIO 8-11 (CE0/MISO/MOSI/SCLK; a second chip on CE1
-would also take GPIO 7). The app doesn't model this — a pot occupies no GPIO pins here, and
-the auto-assigner will happily give 8-11 to other devices. A canvas mixing a pot with enough
+would also take GPIO 7). Energenie is similar: all sockets share one radio transmitter that
+silently reserves GPIO 17, 22, 23, 27 (data), 24 (mode) and 25 (enable). The app doesn't
+model either — a pot or an Energenie occupies no GPIO pins here, and the auto-assigner will
+happily give those pins to other devices. A canvas mixing a pot with enough
 pinned devices therefore generates a script that raises `GPIOPinInUse` on a real Pi (verified
 against gpiozero 2.0.1's mock pin factory), even though the simulation is fine. Fix when we
 wire up real GPIO: treat GPIO 8-11 as taken while any MCP3008 is on the canvas, disable them

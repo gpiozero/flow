@@ -212,6 +212,104 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
       { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
     ],
   },
+  phaseenablemotor: {
+    kind: 'phaseenablemotor',
+    label: 'PhaseEnableMotor',
+    section: 'outputs',
+    description: 'DC motor via a phase/enable driver, -1 (back) to 1 (forward)',
+    valueKind: 'float',
+    hasInput: true,
+    hasOutput: true,
+    params: [
+      { name: 'phase', label: 'phase', type: 'pin', default: 26 },
+      { name: 'enable', label: 'enable', type: 'pin', default: 27 },
+      { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
+    ],
+  },
+  energenie: {
+    kind: 'energenie',
+    label: 'Energenie',
+    section: 'outputs',
+    description: 'Energenie radio-controlled mains socket',
+    valueKind: 'boolean',
+    hasInput: true,
+    hasOutput: true,
+    params: [
+      { name: 'socket', label: 'socket', type: 'int', default: 1, min: 1, max: 4, positional: true, required: true },
+      { name: 'initial_value', label: 'initial_value', type: 'bool', default: false },
+      { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
+    ],
+  },
+  cputemperature: {
+    kind: 'cputemperature',
+    label: 'CPUTemperature',
+    section: 'internal',
+    description: "The Pi's CPU temperature, scaled min_temp..max_temp",
+    valueKind: 'float',
+    hasInput: false,
+    hasOutput: true,
+    params: [
+      { name: 'min_temp', label: 'min_temp', type: 'float', default: 0, step: 1 },
+      { name: 'max_temp', label: 'max_temp', type: 'float', default: 100, step: 1 },
+    ],
+    initialState: { level: 0.5 },
+  },
+  loadaverage: {
+    kind: 'loadaverage',
+    label: 'LoadAverage',
+    section: 'internal',
+    description: 'System load average, scaled between min and max',
+    valueKind: 'float',
+    hasInput: false,
+    hasOutput: true,
+    params: [
+      { name: 'min_load_average', label: 'min_load_average', type: 'float', default: 0, step: 0.1 },
+      { name: 'max_load_average', label: 'max_load_average', type: 'float', default: 1, step: 0.1 },
+      { name: 'minutes', label: 'minutes', type: 'int', default: 5, choices: [1, 5, 15] },
+    ],
+    initialState: { level: 0.5 },
+  },
+  diskusage: {
+    kind: 'diskusage',
+    label: 'DiskUsage',
+    section: 'internal',
+    description: 'How full a filesystem is, 0 (empty) to 1 (full)',
+    valueKind: 'float',
+    hasInput: false,
+    hasOutput: true,
+    params: [
+      { name: 'filesystem', label: 'filesystem', type: 'text', default: '/', positional: true },
+    ],
+    initialState: { level: 0.5 },
+  },
+  timeofday: {
+    kind: 'timeofday',
+    label: 'TimeOfDay',
+    section: 'internal',
+    description: 'On between two times of day, off otherwise',
+    valueKind: 'boolean',
+    hasInput: false,
+    hasOutput: true,
+    timeBased: true,
+    params: [
+      { name: 'start_time', label: 'start_time', type: 'time', default: '09:00', positional: true, required: true },
+      { name: 'end_time', label: 'end_time', type: 'time', default: '17:00', positional: true, required: true },
+      { name: 'utc', label: 'utc', type: 'bool', default: true },
+    ],
+  },
+  pingserver: {
+    kind: 'pingserver',
+    label: 'PingServer',
+    section: 'internal',
+    description: 'On while a host answers ping',
+    valueKind: 'boolean',
+    hasInput: false,
+    hasOutput: true,
+    params: [
+      { name: 'host', label: 'host', type: 'text', default: 'localhost', positional: true, required: true },
+    ],
+    initialState: { up: true },
+  },
   ledbargraph: {
     kind: 'ledbargraph',
     label: 'LEDBarGraph',
@@ -575,11 +673,18 @@ export const SECTIONS: { id: Section; title: string; kinds: NodeKind[] }[] = [
       'servo',
       'angularservo',
       'motor',
+      'phaseenablemotor',
       'robot',
+      'energenie',
       'ledbargraph',
       'ledboard',
       'trafficlights',
     ],
+  },
+  {
+    id: 'internal',
+    title: 'Internal devices',
+    kinds: ['cputemperature', 'loadaverage', 'diskusage', 'timeofday', 'pingserver'],
   },
   {
     id: 'tools',
@@ -646,7 +751,7 @@ export function outputShapeOf(kind: NodeKind): 'scalar' | 'tuple' {
 
 export function isDevice(kind: NodeKind): boolean {
   const section = SPECS[kind].section;
-  return section === 'inputs' || section === 'outputs';
+  return section === 'inputs' || section === 'outputs' || section === 'internal';
 }
 
 export function nextDeviceName(kind: NodeKind, usedNames: ReadonlySet<string>): string {

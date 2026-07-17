@@ -2,6 +2,7 @@
   --c-inputs: #2f9e44;
   --c-outputs: #e8590c;
   --c-tools: #7048e8;
+  --c-internal: #0c8599;
   --c-sources: #0c8599;
   --c-border: #d0d7de;
   --c-muted: #6b7280;
@@ -280,6 +281,10 @@ body {
   border-left-color: var(--c-sources);
 }
 
+.palette-item.section-internal {
+  border-left-color: var(--c-internal);
+}
+
 .palette-label {
   font-weight: 600;
   font-size: 13px;
@@ -354,6 +359,10 @@ body {
 
 .device-node.section-sources {
   border-top-color: var(--c-sources);
+}
+
+.device-node.section-internal {
+  border-top-color: var(--c-internal);
 }
 
 .section-sources .tool-fn {
@@ -819,6 +828,206 @@ body {
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #fef9c3, #fbbf24 75%);
   transition: opacity 0.1s;
+}
+
+/* CPUTemperature: a thermometer whose mercury tracks the level */
+
+.thermo {
+  position: relative;
+  width: 8px;
+  height: 24px;
+  border-radius: 4px 4px 0 0;
+  background: #e2e8f0;
+  border: 1px solid var(--c-border);
+  margin-bottom: 8px;
+}
+
+.thermo-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #ef4444;
+  transition: height 0.1s;
+}
+
+/* the bulb */
+.thermo::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -4px 0 0 -7px;
+  border-radius: 50%;
+  background: #ef4444;
+  border: 1px solid var(--c-border);
+}
+
+/* LoadAverage: a three-bar meter filling as the load rises */
+
+.load-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 24px;
+}
+
+.load-bar {
+  position: relative;
+  width: 8px;
+  height: 100%;
+  border-radius: 2px;
+  background: #e2e8f0;
+  border: 1px solid var(--c-border);
+  overflow: hidden;
+}
+
+.load-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--c-internal);
+  transition: height 0.1s;
+}
+
+/* DiskUsage: a donut chart filled to the usage fraction (the
+   conic-gradient stop is set inline) */
+
+.disk-donut {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--c-border);
+}
+
+.disk-hole {
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+/* PingServer: a little server box whose status LED shows reachability */
+
+.ping-server {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 40px;
+  padding: 6px 6px;
+  border: 1px solid #1f2937;
+  border-radius: 4px;
+  background: #374151;
+  cursor: pointer;
+}
+
+.ping-slot {
+  height: 4px;
+  border-radius: 2px;
+  background: #1f2937;
+}
+
+.ping-led {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+}
+
+.ping-server.up .ping-led {
+  background: #22c55e;
+  box-shadow: 0 0 5px rgba(34, 197, 94, 0.9);
+}
+
+/* TimeOfDay: a live clock face that glows while inside the window */
+
+.clock {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #f8fafc;
+  border: 2px solid #334155;
+  transition: box-shadow 0.2s;
+}
+
+.clock.active {
+  border-color: #f59e0b;
+  box-shadow: 0 0 8px 2px rgba(245, 158, 11, 0.5);
+}
+
+.clock-hand {
+  position: absolute;
+  left: 50%;
+  bottom: 50%;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: #334155;
+  transform-origin: 50% 100%;
+}
+
+.clock-hand.hour {
+  height: 7px;
+}
+
+.clock-hand.minute {
+  height: 11px;
+}
+
+/* Energenie: a BS 1363 plug face — earth pin on top, live and neutral
+   below; the pins glow while the socket is energised */
+
+.uk-plug {
+  position: relative;
+  width: 40px;
+  height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(#f8fafc, #e2e8f0);
+  border: 1px solid #94a3b8;
+}
+
+.plug-pin {
+  position: absolute;
+  background: #64748b;
+  border-radius: 1px;
+  transition: background 0.1s, box-shadow 0.1s;
+}
+
+.plug-pin.earth {
+  top: 6px;
+  left: 50%;
+  width: 5px;
+  height: 10px;
+  margin-left: -2.5px;
+}
+
+.plug-pin.live,
+.plug-pin.neutral {
+  bottom: 7px;
+  width: 9px;
+  height: 5px;
+}
+
+.plug-pin.live {
+  left: 6px;
+}
+
+.plug-pin.neutral {
+  right: 6px;
+}
+
+.uk-plug.on .plug-pin {
+  background: #f59e0b;
+  box-shadow: 0 0 5px rgba(245, 158, 11, 0.8);
 }
 
 /* DistanceSensor: an HC-SR04 with a target sitting at the measured

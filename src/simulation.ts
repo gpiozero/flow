@@ -114,7 +114,28 @@ function nodeValue(
     case 'pot':
     case 'lightsensor':
     case 'distancesensor':
+    case 'cputemperature':
+    case 'loadaverage':
+    case 'diskusage':
       return clamp(Number(state.level ?? 0), 0, 1);
+    case 'pingserver':
+      return state.up ? 1 : 0;
+    case 'timeofday': {
+      // real wall clock, like gpiozero; minute granularity matches the
+      // HH:MM params. A range crossing midnight wraps, as in gpiozero.
+      const now = new Date();
+      const mins = params.utc
+        ? now.getUTCHours() * 60 + now.getUTCMinutes()
+        : now.getHours() * 60 + now.getMinutes();
+      const toMins = (v: ParamValue | undefined) => {
+        const [h, m] = String(v ?? '0:0').split(':').map(Number);
+        return (h || 0) * 60 + (m || 0);
+      };
+      const start = toMins(params.start_time);
+      const end = toMins(params.end_time);
+      if (start < end) return mins >= start && mins <= end ? 1 : 0;
+      return end < mins && mins < start ? 0 : 1;
+    }
     case 'motionsensor':
       return state.motion ? 1 : 0;
     case 'linesensor':
@@ -133,6 +154,7 @@ function nodeValue(
     }
     case 'led':
     case 'buzzer':
+    case 'energenie':
       // value is boolean: any truthy (nonzero) source value turns it on
       if (inputs.length === 0) return params.initial_value ? 1 : 0;
       return toNumber(readSource(node, inputs[0], sim, advance)) !== 0 ? 1 : 0;
@@ -169,6 +191,7 @@ function nodeValue(
       return clamp(toNumber(readSource(node, inputs[0], sim, advance)), -1, 1);
     }
     case 'motor':
+    case 'phaseenablemotor':
       if (inputs.length === 0) return 0;
       return clamp(toNumber(readSource(node, inputs[0], sim, advance)), -1, 1);
     case 'rgbled': {

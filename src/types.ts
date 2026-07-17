@@ -1,6 +1,6 @@
 import type { Node } from '@xyflow/react';
 
-export type Section = 'inputs' | 'outputs' | 'tools' | 'sources';
+export type Section = 'inputs' | 'outputs' | 'tools' | 'sources' | 'internal';
 
 export type NodeKind =
   | 'button'
@@ -20,10 +20,17 @@ export type NodeKind =
   | 'servo'
   | 'angularservo'
   | 'motor'
+  | 'phaseenablemotor'
+  | 'energenie'
   | 'ledbargraph'
   | 'ledboard'
   | 'buttonboard'
   | 'robot'
+  | 'cputemperature'
+  | 'loadaverage'
+  | 'diskusage'
+  | 'timeofday'
+  | 'pingserver'
   | 'negated'
   | 'inverted'
   | 'all_values'
@@ -45,7 +52,7 @@ export type NodeKind =
   | 'random_values'
   | 'ramping_values';
 
-export type ParamValue = number | boolean;
+export type ParamValue = number | boolean | string;
 
 /**
  * What a wire carries: most nodes emit a scalar, but multi-channel
@@ -58,17 +65,24 @@ export interface ParamSpec {
   label: string;
   /**
    * 'pin' renders a GPIO pin dropdown and participates in unique pin
-   * assignment; 'channel' does the same for MCP3008 channels 0-7
+   * assignment; 'channel' does the same for MCP3008 channels 0-7.
+   * 'text' is a free string (e.g. PingServer's host); 'time' is a
+   * "HH:MM" string rendered as a time picker and emitted as a
+   * datetime.time in generated code.
    */
-  type: 'int' | 'float' | 'bool' | 'pin' | 'channel';
+  type: 'int' | 'float' | 'bool' | 'pin' | 'channel' | 'text' | 'time';
   default: ParamValue;
   min?: number;
   max?: number;
   step?: number;
+  /** restrict an int param to these values; renders as a dropdown */
+  choices?: number[];
   /** set as an attribute after construction (e.g. source_delay), not a constructor arg */
   attr?: boolean;
   /** required by the gpiozero signature: always emitted, even at its default */
   required?: boolean;
+  /** emitted as a positional arg (e.g. Energenie's socket), not name=value */
+  positional?: boolean;
   /** simulation-only param with no gpiozero equivalent; left out of the code preview */
   omit?: boolean;
 }
