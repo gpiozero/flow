@@ -68,8 +68,43 @@ body {
   background: var(--c-panel);
 }
 
-.topbar-clear {
+.topbar-pi {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-left: auto;
+}
+
+.pi-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #9ca3af;
+}
+
+.pi-dot-connecting {
+  background: #f59e0b;
+}
+
+.pi-dot-connected {
+  background: #2f9e44;
+}
+
+.pi-address {
+  width: 170px;
+  padding: 6px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.pi-address:disabled {
+  color: var(--c-muted);
+  background: var(--c-panel);
+}
+
+.topbar-clear {
   color: #dc2626;
   border-color: #fecaca;
 }

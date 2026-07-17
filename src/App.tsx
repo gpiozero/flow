@@ -45,6 +45,7 @@ import {
   createSimState,
   resetNodeState,
 } from './simulation';
+import { usePiLink } from './pi';
 import { FlowContext } from './store';
 import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
 
@@ -126,12 +127,22 @@ function Editor() {
     return () => clearInterval(interval);
   }, [needsClock]);
 
-  const values = useMemo(() => {
+  const simValues = useMemo(() => {
     const advance = tick !== lastTickRef.current;
     lastTickRef.current = tick;
     if (advance) simRef.current.step++;
     return computeValues(nodes, edges, simRef.current, advance);
   }, [nodes, edges, tick]);
+
+  const pi = usePiLink(nodes, edges, showWarning);
+
+  // While connected to a Pi, device nodes show real hardware values
+  // (tools keep their simulated values — they're anonymous generators
+  // on the Pi, so have nothing to report).
+  const values = useMemo(
+    () => (pi.status === 'connected' ? { ...simValues, ...pi.liveValues } : simValues),
+    [simValues, pi.status, pi.liveValues],
+  );
 
   const updateNodeState = useCallback(
     (id: string, patch: Record<string, ParamValue>) => {
@@ -463,7 +474,32 @@ function Editor() {
       <div className="app">
         <header className="topbar">
           <h1>gpiozero flow</h1>
-          <span className="topbar-note">MVP — simulated in the browser, no real GPIO</span>
+          <span className="topbar-note">
+            {pi.status === 'connected'
+              ? 'Live — devices running on the Pi'
+              : 'Simulated in the browser'}
+          </span>
+          <div className="topbar-pi">
+            <span className={`pi-dot pi-dot-${pi.status}`} aria-hidden="true" />
+            <input
+              className="pi-address"
+              value={pi.address}
+              onChange={(e) => pi.setAddress(e.target.value)}
+              disabled={pi.status !== 'disconnected'}
+              placeholder="pi-host:8765"
+              title="Pi agent WebSocket address"
+              aria-label="Pi agent address"
+            />
+            {pi.status === 'disconnected' ? (
+              <button className="topbar-script" onClick={pi.connect}>
+                Connect to Pi
+              </button>
+            ) : (
+              <button className="topbar-script" onClick={pi.disconnect}>
+                {pi.status === 'connecting' ? 'Cancel' : 'Disconnect'}
+              </button>
+            )}
+          </div>
           <button
             className="topbar-clear"
             onClick={clearCanvas}
