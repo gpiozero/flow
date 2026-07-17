@@ -22,14 +22,36 @@ const waveIcon = (d: string) => (
   </svg>
 );
 
-// each artificial source shows the waveform it emits
-const SOURCE_ICONS: Partial<Record<NodeKind, ReactElement>> = {
+// Artificial sources show the waveform they emit; tools that reshape a
+// signal show the shape they produce, and arithmetic/logic tools show a
+// glyph. Anything absent falls back to ∿ / ƒ(x) by section.
+const NODE_ICONS: Partial<Record<NodeKind, ReactElement | string>> = {
   sin_values: waveIcon('M0 8 Q5 -2 10 8 Q15 18 20 8 Q25 -2 30 8 Q35 18 40 8'),
   // the sine path shifted a quarter period, so it starts on a peak
   cos_values: waveIcon('M0 3 Q2.5 3 5 8 Q10 18 15 8 Q20 -2 25 8 Q30 18 35 8 Q37.5 3 40 3'),
   alternating_values: waveIcon('M0 12 H5 V4 H15 V12 H25 V4 H35 V12 H40'),
   ramping_values: waveIcon('M0 12 L10 4 L20 12 L30 4 L40 12'),
   random_values: waveIcon('M0 8 L4 3 L8 11 L12 5 L16 13 L20 4 L24 9 L28 2 L32 10 L36 6 L40 8'),
+  negated: '!',
+  inverted: '1-x',
+  // a sine clipped flat where it hits the limits
+  clamped: waveIcon('M0 4 H10 C14 4 14 12 18 12 H28 C32 12 32 4 36 4 H40'),
+  quantized: waveIcon('M0 14 H10 V10 H20 V6 H30 V2 H40'),
+  // a sine snapping to a square wave at the threshold
+  booleanized: waveIcon('M0 8 Q5 -2 10 8 Q15 18 20 8 V4 H30 V12 H40'),
+  // noise settling into a gentle wave
+  smoothed: waveIcon('M0 8 L4 4 L8 11 L12 5 L16 10 L20 8 Q25 5 30 8 Q35 11 40 8'),
+  // half-range wave growing to full range, and the reverse
+  scaled_full: waveIcon('M0 8 Q5 5 10 8 Q15 11 20 8 Q25 -2 30 8 Q35 18 40 8'),
+  scaled_half: waveIcon('M0 8 Q5 -2 10 8 Q15 18 20 8 Q25 5 30 8 Q35 11 40 8'),
+  // two wires merging into one
+  zip_values: waveIcon('M0 3 C12 3 12 8 24 8 H40 M0 13 C12 13 12 8 24 8'),
+  summed: 'Σ',
+  multiplied: 'Π',
+  averaged: 'x̄',
+  absoluted: '|x|',
+  all_values: '&',
+  any_values: '≥1',
 };
 
 export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<DeviceFlowNode>) {
@@ -296,7 +318,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
       default:
         return (
           <div className="tool-fn">
-            {spec.section === 'sources' ? (SOURCE_ICONS[data.kind] ?? '∿') : 'ƒ(x)'}
+            {NODE_ICONS[data.kind] ?? (spec.section === 'sources' ? '∿' : 'ƒ(x)')}
           </div>
         );
     }
