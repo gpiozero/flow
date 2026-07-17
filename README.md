@@ -51,7 +51,7 @@ just need their node designs (per-channel pins, visuals).
 | LEDBoard | Board | ✅ | bank of 1-10 LEDs, one tuple channel each; `pwm=True` dims fractionally |
 | ButtonBoard | Board | ✅ | bank of 1-10 buttons emitting a boolean tuple; wires straight into LEDBoard |
 | TrafficLights | Board | ✅ | red/amber/green lamps; boolean channels in that order, or fractional dimming with `pwm=True` |
-| Robot | Board | ❌ | tuple of motor values plus board-level methods |
+| Robot | Board | ✅ | (left, right) speed tuples; wheels spin independently; board-level methods (forward, left, …) don't exist here — steer via the source |
 | Other boards (FishDish, JamHat, …) | Board | ❌ | mostly tuple values; case-by-case now tuple wires exist |
 | Energenie | Other | ❌ | easy — boolean like LED, socket number instead of pin |
 | CPUTemperature, LoadAverage, DiskUsage | Internal | ❌ | easy — simulated slider inputs |

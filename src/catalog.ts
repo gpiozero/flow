@@ -247,6 +247,26 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
       { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
     ],
   },
+  robot: {
+    kind: 'robot',
+    label: 'Robot',
+    section: 'outputs',
+    description: 'Dual-motor robot driven by (left, right) speed tuples',
+    valueKind: 'float',
+    hasInput: true,
+    hasOutput: true,
+    inputShape: 'tuple',
+    outputShape: 'tuple',
+    // the pins are omitted from the generic codegen: deviceConstructor
+    // renders them as Robot(left=Motor(...), right=Motor(...))
+    params: [
+      { name: 'left_forward', label: 'left_forward', type: 'pin', default: 4, omit: true },
+      { name: 'left_backward', label: 'left_backward', type: 'pin', default: 14, omit: true },
+      { name: 'right_forward', label: 'right_forward', type: 'pin', default: 17, omit: true },
+      { name: 'right_backward', label: 'right_backward', type: 'pin', default: 18, omit: true },
+      { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
+    ],
+  },
   rgbled: {
     kind: 'rgbled',
     label: 'RGBLED',
@@ -555,6 +575,7 @@ export const SECTIONS: { id: Section; title: string; kinds: NodeKind[] }[] = [
       'servo',
       'angularservo',
       'motor',
+      'robot',
       'ledbargraph',
       'ledboard',
       'trafficlights',

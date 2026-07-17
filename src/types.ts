@@ -23,6 +23,7 @@ export type NodeKind =
   | 'ledbargraph'
   | 'ledboard'
   | 'buttonboard'
+  | 'robot'
   | 'negated'
   | 'inverted'
   | 'all_values'

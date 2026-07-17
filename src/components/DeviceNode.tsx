@@ -57,6 +57,33 @@ const NODE_ICONS: Partial<Record<NodeKind, ReactElement | string>> = {
   any_values: '≥1',
 };
 
+// A wheel turning via direct DOM writes from a rAF loop: the angle
+// accumulates at a rate set by the speed, so speed changes and
+// reversals stay smooth without re-rendering every frame.
+function MotorWheel({ speed, small }: { speed: number; small?: boolean }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const angle = useRef(0);
+  useEffect(() => {
+    if (speed === 0) return;
+    let last = performance.now();
+    let raf = requestAnimationFrame(function turn(now: number) {
+      angle.current =
+        (angle.current + ((now - last) / 1000) * speed * WHEEL_DEG_PER_SEC) % 360;
+      last = now;
+      if (ref.current) ref.current.style.transform = `rotate(${angle.current}deg)`;
+      raf = requestAnimationFrame(turn);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [speed]);
+  return (
+    <div className={`motor-wheel${small ? ' small' : ''}`} ref={ref}>
+      <div className="motor-spoke" />
+      <div className="motor-spoke cross" />
+      <div className="motor-hub" />
+    </div>
+  );
+}
+
 export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<DeviceFlowNode>) {
   const spec = SPECS[data.kind];
   const { deleteElements } = useReactFlow();
@@ -68,25 +95,6 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
   const channel = (i: number) => (tuple ? (tuple[i] ?? 0) : 0);
   const pressInfo = useRef<{ wasPressed: boolean; at: number } | null>(null);
 
-  // The motor wheel turns via direct DOM writes from a rAF loop: the
-  // angle accumulates at a rate set by the value, so speed changes and
-  // reversals stay smooth without re-rendering every frame.
-  const wheelRef = useRef<HTMLDivElement | null>(null);
-  const wheelAngle = useRef(0);
-  const wheelSpeed = data.kind === 'motor' ? value : 0;
-  useEffect(() => {
-    if (wheelSpeed === 0) return;
-    let last = performance.now();
-    let raf = requestAnimationFrame(function turn(now: number) {
-      wheelAngle.current =
-        (wheelAngle.current + ((now - last) / 1000) * wheelSpeed * WHEEL_DEG_PER_SEC) % 360;
-      last = now;
-      if (wheelRef.current)
-        wheelRef.current.style.transform = `rotate(${wheelAngle.current}deg)`;
-      raf = requestAnimationFrame(turn);
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [wheelSpeed]);
   // last pointer angle plus rotation not yet big enough to be a step
   const knobDrag = useRef<{ angle: number; remainder: number } | null>(null);
   // authoritative step count: rapid wheel/drag events can outpace the
@@ -338,11 +346,13 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         );
       }
       case 'motor':
+        return <MotorWheel speed={value} />;
+      case 'robot':
         return (
-          <div className="motor-wheel" ref={wheelRef}>
-            <div className="motor-spoke" />
-            <div className="motor-spoke cross" />
-            <div className="motor-hub" />
+          <div className="robot">
+            <MotorWheel speed={channel(0)} small />
+            <div className="robot-chassis" />
+            <MotorWheel speed={channel(1)} small />
           </div>
         );
       case 'buttonboard':
@@ -431,6 +441,8 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         return `pin ${data.params.pin}`;
       case 'motor':
         return `pins ${data.params.forward}/${data.params.backward}`;
+      case 'robot':
+        return `pins ${data.params.left_forward}/${data.params.left_backward}, ${data.params.right_forward}/${data.params.right_backward}`;
       case 'rgbled':
         return `pins ${data.params.red}/${data.params.green}/${data.params.blue}`;
       case 'trafficlights':

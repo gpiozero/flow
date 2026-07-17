@@ -20,6 +20,12 @@ export function deviceConstructor(node: DeviceFlowNode): string {
       args.push(pyLiteral(params[key]));
     }
   }
+  // Robot wraps its pins in two Motor instances; the pin params are
+  // marked omit so the generic loop below leaves them alone
+  if (node.data.kind === 'robot') {
+    args.push(`left=Motor(${pyLiteral(params.left_forward)}, ${pyLiteral(params.left_backward)})`);
+    args.push(`right=Motor(${pyLiteral(params.right_forward)}, ${pyLiteral(params.right_backward)})`);
+  }
   // a lone pin is idiomatic positionally (LED(17)); once there are
   // several, name them all so the reader needn't recall the order.
   // ADC channels are always named (MCP3008(channel=0)).
@@ -116,7 +122,13 @@ export function generateScript(nodes: DeviceFlowNode[], edges: Edge[]): string {
     for (const pred of incoming.get(n.id) ?? []) markUsed(pred);
   }
 
-  const deviceImports = [...new Set(deviceNodes.map((n) => SPECS[n.data.kind].label))].sort();
+  // Robot's constructor references Motor even without a Motor node
+  const deviceImports = [
+    ...new Set([
+      ...deviceNodes.map((n) => SPECS[n.data.kind].label),
+      ...(deviceNodes.some((n) => n.data.kind === 'robot') ? ['Motor'] : []),
+    ]),
+  ].sort();
   const toolImports = [...usedTools].map((k) => SPECS[k].label).sort();
 
   const lines: string[] = [];

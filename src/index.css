@@ -959,6 +959,33 @@ body {
   border: 5px solid #334155;
 }
 
+/* Robot: a chassis seen from above with a wheel either side */
+
+.robot {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.motor-wheel.small {
+  width: 28px;
+  height: 28px;
+  border-width: 4px;
+}
+
+.motor-wheel.small .motor-hub {
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+}
+
+.robot-chassis {
+  width: 30px;
+  height: 40px;
+  border-radius: 6px 6px 10px 10px;
+  background: #1e3a8a;
+}
+
 .motor-spoke {
   position: absolute;
   top: 50%;

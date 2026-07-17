@@ -193,6 +193,12 @@ function nodeValue(
       const v = readSource(node, rawInputs[0], sim, advance);
       return channels(v, 3).map((c) => (params.pwm ? clamp(c, 0, 1) : c !== 0 ? 1 : 0));
     }
+    case 'robot': {
+      // (left, right) wheel speeds, each -1..1
+      if (rawInputs.length === 0) return [0, 0];
+      const v = readSource(node, rawInputs[0], sim, advance);
+      return channels(v, 2).map((c) => clamp(c, -1, 1));
+    }
     case 'zip_values':
       // one channel per wired source, in connection order
       return inputs;
