@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Edge } from '@xyflow/react';
 import { generateScript } from '../codegen';
+import type { PinNumbering } from '../pins';
 import type { DeviceFlowNode } from '../types';
 
 const DEFAULT_FILENAME = 'gpiozero_flow';
@@ -8,11 +9,15 @@ const DEFAULT_FILENAME = 'gpiozero_flow';
 interface Props {
   nodes: DeviceFlowNode[];
   edges: Edge[];
+  numbering: PinNumbering;
   onClose: () => void;
 }
 
-export function ScriptModal({ nodes, edges, onClose }: Props) {
-  const script = useMemo(() => generateScript(nodes, edges), [nodes, edges]);
+export function ScriptModal({ nodes, edges, numbering, onClose }: Props) {
+  const script = useMemo(
+    () => generateScript(nodes, edges, numbering),
+    [nodes, edges, numbering],
+  );
   const [filename, setFilename] = useState(DEFAULT_FILENAME);
 
   const onDownload = () => {

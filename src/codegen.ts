@@ -1,5 +1,7 @@
 import type { Edge } from '@xyflow/react';
 import { SPECS, isDevice, requiredPinParams } from './catalog';
+import { pyPin } from './pins';
+import type { PinNumbering } from './pins';
 import type { DeviceFlowNode, NodeKind, ParamSpec, ParamValue } from './types';
 
 export function pyLiteral(value: ParamValue): string {
@@ -9,8 +11,10 @@ export function pyLiteral(value: ParamValue): string {
   return String(value);
 }
 
-/** A param's Python value: time params become datetime.time literals */
-function pyParam(p: ParamSpec, value: ParamValue): string {
+/** A param's Python value: time params become datetime.time literals,
+ * pins follow the numbering (17 or 'BOARD11') */
+function pyParam(p: ParamSpec, value: ParamValue, numbering: PinNumbering): string {
+  if (p.type === 'pin') return pyPin(value, numbering);
   if (p.type === 'time') {
     const [h, m] = String(value).split(':').map(Number);
     return `time(${h || 0}, ${m || 0})`;
@@ -19,7 +23,10 @@ function pyParam(p: ParamSpec, value: ParamValue): string {
 }
 
 /** `varname = Class(args...)` plus any attr params (e.g. source_delay) on their own lines. */
-export function deviceConstructor(node: DeviceFlowNode): string {
+export function deviceConstructor(
+  node: DeviceFlowNode,
+  numbering: PinNumbering = 'bcm',
+): string {
   const spec = SPECS[node.data.kind];
   const params = node.data.params;
   const varName = node.data.name ?? node.data.kind;
@@ -28,14 +35,18 @@ export function deviceConstructor(node: DeviceFlowNode): string {
   // dynamic pin lists (LEDBarGraph's *pins) come first, positionally
   if (spec.dynamicPins) {
     for (const key of requiredPinParams(node.data.kind, params)) {
-      args.push(pyLiteral(params[key]));
+      args.push(pyPin(params[key], numbering));
     }
   }
   // Robot wraps its pins in two Motor instances; the pin params are
   // marked omit so the generic loop below leaves them alone
   if (node.data.kind === 'robot') {
-    args.push(`left=Motor(${pyLiteral(params.left_forward)}, ${pyLiteral(params.left_backward)})`);
-    args.push(`right=Motor(${pyLiteral(params.right_forward)}, ${pyLiteral(params.right_backward)})`);
+    args.push(
+      `left=Motor(${pyPin(params.left_forward, numbering)}, ${pyPin(params.left_backward, numbering)})`,
+    );
+    args.push(
+      `right=Motor(${pyPin(params.right_forward, numbering)}, ${pyPin(params.right_backward, numbering)})`,
+    );
   }
   // a lone pin is idiomatic positionally (LED(17)); once there are
   // several, name them all so the reader needn't recall the order.
@@ -50,11 +61,11 @@ export function deviceConstructor(node: DeviceFlowNode): string {
       return;
     }
     const isPin = p.type === 'pin' || p.type === 'channel';
-    if (i === 0 && pinCount <= 1 && p.type === 'pin') args.push(pyLiteral(value));
+    if (i === 0 && pinCount <= 1 && p.type === 'pin') args.push(pyPin(value, numbering));
     else if (p.positional) {
-      if (p.required || value !== p.default) args.push(pyParam(p, value));
+      if (p.required || value !== p.default) args.push(pyParam(p, value, numbering));
     } else if (isPin || p.required || value !== p.default)
-      args.push(`${p.name}=${pyParam(p, value)}`);
+      args.push(`${p.name}=${pyParam(p, value, numbering)}`);
   });
   return [`${varName} = ${spec.label}(${args.join(', ')})`, ...attrs].join('\n');
 }
@@ -79,7 +90,11 @@ export function toolCall(node: DeviceFlowNode, inputExprs: string[]): string {
  * of their own — they're inlined recursively at each point they're
  * referenced, same as calling gpiozero's source/values tools directly.
  */
-export function generateScript(nodes: DeviceFlowNode[], edges: Edge[]): string {
+export function generateScript(
+  nodes: DeviceFlowNode[],
+  edges: Edge[],
+  numbering: PinNumbering = 'bcm',
+): string {
   const nodesById = new Map(nodes.map((n) => [n.id, n]));
   const incoming = new Map<string, string[]>();
   for (const e of edges) {
@@ -154,7 +169,7 @@ export function generateScript(nodes: DeviceFlowNode[], edges: Edge[]): string {
   lines.push('from signal import pause');
 
   if (deviceNodes.length) {
-    lines.push('', ...deviceNodes.map(deviceConstructor));
+    lines.push('', ...deviceNodes.map((n) => deviceConstructor(n, numbering)));
   }
 
   const wiring = deviceNodes

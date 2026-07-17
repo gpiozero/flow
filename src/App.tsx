@@ -46,6 +46,7 @@ import {
   resetNodeState,
 } from './simulation';
 import { usePiLink } from './pi';
+import type { PinNumbering } from './pins';
 import { FlowContext } from './store';
 import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
 
@@ -88,6 +89,16 @@ function Editor() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [scriptOpen, setScriptOpen] = useState(false);
+  // Pins are stored as BCM ints throughout (params, pin assignment,
+  // the Pi wire format); the numbering only changes how they're shown
+  // and how generated code spells them (17 vs 'BOARD11').
+  const [numbering, setNumbering] = useState<PinNumbering>(() =>
+    localStorage.getItem('gpio-webapp.numbering') === 'board' ? 'board' : 'bcm',
+  );
+  const changeNumbering = useCallback((n: PinNumbering) => {
+    localStorage.setItem('gpio-webapp.numbering', n);
+    setNumbering(n);
+  }, []);
   const [warning, setWarning] = useState<string | null>(null);
   const warningTimer = useRef<number | undefined>(undefined);
 
@@ -206,7 +217,10 @@ function Editor() {
     [setNodes, showWarning],
   );
 
-  const flowContext = useMemo(() => ({ values, updateNodeState }), [values, updateNodeState]);
+  const flowContext = useMemo(
+    () => ({ values, updateNodeState, numbering }),
+    [values, updateNodeState, numbering],
+  );
 
   // Setting a device's source replaces any previous source, so single-input
   // targets drop their existing wire when a new one is connected.
@@ -479,6 +493,22 @@ function Editor() {
               ? 'Live — devices running on the Pi'
               : 'Simulated in the browser'}
           </span>
+          <div className="numbering-toggle" role="group" aria-label="Pin numbering">
+            <button
+              className={numbering === 'bcm' ? 'active' : ''}
+              onClick={() => changeNumbering('bcm')}
+              title="Broadcom GPIO numbers, e.g. 17"
+            >
+              BCM
+            </button>
+            <button
+              className={numbering === 'board' ? 'active' : ''}
+              onClick={() => changeNumbering('board')}
+              title="Physical header pin numbers, e.g. BOARD11"
+            >
+              BOARD
+            </button>
+          </div>
           <div className="topbar-pi">
             <span className={`pi-dot pi-dot-${pi.status}`} aria-hidden="true" />
             <input
@@ -512,7 +542,12 @@ function Editor() {
           </button>
         </header>
         {scriptOpen && (
-          <ScriptModal nodes={nodes} edges={edges} onClose={() => setScriptOpen(false)} />
+          <ScriptModal
+            nodes={nodes}
+            edges={edges}
+            numbering={numbering}
+            onClose={() => setScriptOpen(false)}
+          />
         )}
         <div className="workspace">
           <Sidebar />
@@ -552,6 +587,7 @@ function Editor() {
             takenPins={takenPins}
             takenNames={takenNames}
             takenChannels={takenChannels}
+            numbering={numbering}
             onChangeParam={updateNodeParam}
             onChangeName={updateNodeName}
             onDuplicate={duplicateNode}

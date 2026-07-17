@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { GPIO_PINS, NAME_PATTERN, SPECS, requiredPinParams } from '../catalog';
+import { NAME_PATTERN, SPECS, requiredPinParams } from '../catalog';
 import { deviceConstructor, toolCall } from '../codegen';
+import { pinDisplay, pinOptions } from '../pins';
+import type { PinNumbering } from '../pins';
 import type { DeviceFlowNode, ParamValue } from '../types';
 
 interface Props {
@@ -12,6 +14,7 @@ interface Props {
   takenNames: ReadonlySet<string>;
   /** MCP3008 channels used by other nodes; shown disabled in channel dropdowns */
   takenChannels: ReadonlySet<number>;
+  numbering: PinNumbering;
   onChangeParam: (id: string, name: string, value: ParamValue) => void;
   onChangeName: (id: string, name: string) => void;
   /** copy this node: same params/state, fresh pins and name */
@@ -23,6 +26,7 @@ export function ConfigPanel({
   takenPins,
   takenNames,
   takenChannels,
+  numbering,
   onChangeParam,
   onChangeName,
   onDuplicate,
@@ -57,9 +61,9 @@ export function ConfigPanel({
         value={Number(node.data.params[name])}
         onChange={(e) => onChangeParam(node.id, name, Number(e.target.value))}
       >
-        {GPIO_PINS.map((pin) => (
+        {pinOptions(numbering).map((pin) => (
           <option key={pin} value={pin} disabled={pinTaken(pin)}>
-            {pin}
+            {pinDisplay(pin, numbering)}
             {pinTaken(pin) ? ' (in use)' : ''}
           </option>
         ))}
@@ -152,7 +156,7 @@ export function ConfigPanel({
           </label>
         ))}
       <div className="config-code">
-        <code>{preview(node)}</code>
+        <code>{preview(node, numbering)}</code>
       </div>
       <button className="config-duplicate" onClick={() => onDuplicate(node.id)}>
         Duplicate node
@@ -212,10 +216,10 @@ function NameField({
 // Isolated single-node preview: for anonymous tools/sources this can't
 // know the real wiring, so it stands a literal `values` placeholder in
 // for whatever's actually connected (see codegen.ts for the full thing).
-function preview(node: DeviceFlowNode): string {
+function preview(node: DeviceFlowNode, numbering: PinNumbering): string {
   const spec = SPECS[node.data.kind];
   if (spec.section === 'tools' || spec.section === 'sources') {
     return toolCall(node, spec.hasInput ? ['values'] : []);
   }
-  return deviceConstructor(node);
+  return deviceConstructor(node, numbering);
 }

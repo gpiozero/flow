@@ -68,11 +68,38 @@ body {
   background: var(--c-panel);
 }
 
+.numbering-toggle {
+  display: flex;
+  margin-left: auto;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.numbering-toggle button {
+  padding: 6px 10px;
+  border: none;
+  background: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--c-muted);
+  cursor: pointer;
+}
+
+.numbering-toggle button + button {
+  border-left: 1px solid var(--c-border);
+}
+
+.numbering-toggle button.active {
+  background: var(--c-panel);
+  color: var(--c-text);
+  font-weight: 600;
+}
+
 .topbar-pi {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
 }
 
 .pi-dot {

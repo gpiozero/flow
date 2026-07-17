@@ -3,8 +3,9 @@ import type { PointerEvent, ReactElement } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { SPECS, adcMin, dynamicPinCount } from '../catalog';
+import { pinDisplay } from '../pins';
 import { useFlow } from '../store';
-import type { DeviceFlowNode, NodeKind } from '../types';
+import type { DeviceFlowNode, NodeKind, ParamValue } from '../types';
 
 // Pointer-downs shorter than this toggle the button; longer ones act
 // as a momentary hold that releases on pointer-up.
@@ -95,7 +96,7 @@ function MotorWheel({ speed, small }: { speed: number; small?: boolean }) {
 export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<DeviceFlowNode>) {
   const spec = SPECS[data.kind];
   const { deleteElements } = useReactFlow();
-  const { values, updateNodeState } = useFlow();
+  const { values, updateNodeState, numbering } = useFlow();
   const raw = values[id] ?? 0;
   // scalar view for single-channel visuals; tuple set for multi-channel nodes
   const value = Array.isArray(raw) ? (raw[0] ?? 0) : raw;
@@ -530,6 +531,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
   };
 
   const subtitle = () => {
+    const pin = (v: ParamValue | undefined) => pinDisplay(Number(v), numbering);
     switch (data.kind) {
       case 'button':
       case 'led':
@@ -541,11 +543,11 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
       case 'lightsensor':
       case 'motionsensor':
       case 'linesensor':
-        return `pin ${data.params.pin}`;
+        return `pin ${pin(data.params.pin)}`;
       case 'motor':
-        return `pins ${data.params.forward}/${data.params.backward}`;
+        return `pins ${pin(data.params.forward)}/${pin(data.params.backward)}`;
       case 'phaseenablemotor':
-        return `pins ${data.params.phase}/${data.params.enable}`;
+        return `pins ${pin(data.params.phase)}/${pin(data.params.enable)}`;
       case 'energenie':
         return `socket ${data.params.socket}`;
       case 'cputemperature': {
@@ -563,15 +565,15 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
       case 'pingserver':
         return `${data.params.host}`;
       case 'robot':
-        return `pins ${data.params.left_forward}/${data.params.left_backward}, ${data.params.right_forward}/${data.params.right_backward}`;
+        return `pins ${pin(data.params.left_forward)}/${pin(data.params.left_backward)}, ${pin(data.params.right_forward)}/${pin(data.params.right_backward)}`;
       case 'rgbled':
-        return `pins ${data.params.red}/${data.params.green}/${data.params.blue}`;
+        return `pins ${pin(data.params.red)}/${pin(data.params.green)}/${pin(data.params.blue)}`;
       case 'trafficlights':
-        return `pins ${data.params.red}/${data.params.amber}/${data.params.green}`;
+        return `pins ${pin(data.params.red)}/${pin(data.params.amber)}/${pin(data.params.green)}`;
       case 'distancesensor':
-        return `pins ${data.params.echo}/${data.params.trigger}`;
+        return `pins ${pin(data.params.echo)}/${pin(data.params.trigger)}`;
       case 'rotaryencoder':
-        return `pins ${data.params.a}/${data.params.b}`;
+        return `pins ${pin(data.params.a)}/${pin(data.params.b)}`;
       case 'ledbargraph':
       case 'ledboard':
         return `${data.params.leds} leds`;
