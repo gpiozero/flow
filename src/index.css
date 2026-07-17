@@ -663,6 +663,12 @@ body {
   animation: buzz 0.15s linear infinite;
 }
 
+.tone-note {
+  font-family: ui-monospace, 'Cascadia Mono', monospace;
+  font-size: 11px;
+  color: var(--c-muted);
+}
+
 @keyframes buzz {
   0%,
   100% {

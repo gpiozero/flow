@@ -134,6 +134,11 @@ function nodeValue(
     case 'pwmled':
       if (inputs.length === 0) return clamp(Number(params.initial_value ?? 0), 0, 1);
       return clamp(toNumber(readSource(node, inputs[0], sim, advance)), 0, 1);
+    case 'tonalbuzzer':
+      // silent without a source (gpiozero's value None, shown as NaN
+      // here); driven, 0 is the mid tone and ±1 the octave extremes
+      if (inputs.length === 0) return NaN;
+      return clamp(toNumber(readSource(node, inputs[0], sim, advance)), -1, 1);
     case 'servo':
       if (inputs.length === 0) return clamp(Number(params.initial_value ?? 0), -1, 1);
       return clamp(toNumber(readSource(node, inputs[0], sim, advance)), -1, 1);
@@ -316,7 +321,8 @@ function channels(v: SimValue, n: number): number[] {
 
 export function anyChannelActive(v: SimValue | undefined): boolean {
   if (v === undefined) return false;
-  return Array.isArray(v) ? v.some((c) => c !== 0) : v !== 0;
+  const active = (c: number) => c !== 0 && !Number.isNaN(c);
+  return Array.isArray(v) ? v.some(active) : active(v);
 }
 
 function periodOf(value: ParamValue | undefined): number {

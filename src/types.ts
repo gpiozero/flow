@@ -16,6 +16,7 @@ export type NodeKind =
   | 'led'
   | 'pwmled'
   | 'buzzer'
+  | 'tonalbuzzer'
   | 'servo'
   | 'angularservo'
   | 'motor'

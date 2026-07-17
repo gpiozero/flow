@@ -16,6 +16,9 @@ const DEG_PER_STEP = 18;
 // Motor wheel speed at full value: one revolution per second
 const WHEEL_DEG_PER_SEC = 360;
 
+// note names for the tonal buzzer's readout; its mid tone is A4
+const NOTE_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+
 const waveIcon = (d: string) => (
   <svg className="wave-icon" viewBox="0 0 40 16" aria-hidden="true">
     <path d={d} />
@@ -265,6 +268,21 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         );
       case 'buzzer':
         return <div className={`buzzer${value !== 0 ? ' buzzing' : ''}`} />;
+      case 'tonalbuzzer': {
+        // value 0 is A4 (midi 69); ±1 spans `octaves` octaves either way
+        const playing = !Number.isNaN(value);
+        let note = '—';
+        if (playing) {
+          const midi = 69 + Math.round(value * 12 * Number(data.params.octaves));
+          note = `${NOTE_NAMES[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}`;
+        }
+        return (
+          <div className="widget-stack">
+            <div className={`buzzer${playing ? ' buzzing' : ''}`} />
+            <span className="tone-note">{note}</span>
+          </div>
+        );
+      }
       case 'rgbled': {
         const [r, g, b] = [channel(0), channel(1), channel(2)];
         const on = r > 0 || g > 0 || b > 0;
@@ -355,6 +373,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
       case 'led':
       case 'pwmled':
       case 'buzzer':
+      case 'tonalbuzzer':
       case 'servo':
       case 'angularservo':
       case 'lightsensor':
@@ -405,7 +424,9 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
               // doesn't change the node's width
               `(${tuple.map((c) => ((data.params.pwm ?? spec.valueKind === 'float') ? c.toFixed(1).padStart(4) : c !== 0 ? '1' : '0')).join(', ')})`
             : spec.valueKind === 'float'
-              ? value.toFixed(2)
+              ? Number.isNaN(value)
+                ? '–' // a silent TonalBuzzer: gpiozero's value None
+                : value.toFixed(2)
               : value > 0
                 ? '1'
                 : '0'}
