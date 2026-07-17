@@ -83,15 +83,27 @@ class is what you'd actually construct.
 | `quantized` | Processor | ✅ | |
 | `booleanized` | Processor | ✅ | hysteresis latches on the sim's per-node state, same as `smoothed` |
 | `smoothed` | Processor | ✅ | |
-| `queued` | Processor | ❌ | easy — stateful window like `smoothed` |
-| `pre_delayed`, `post_delayed` | Processor | ❌ | moderate — per-node time state on the sim clock |
-| `pre_periodic_filtered`, `post_periodic_filtered` | Processor | ❌ | moderate — as above |
+| `queued` | Processor | ✅ | delay line: emits the value from qsize ticks ago (see bug note below) |
+| `pre_delayed`, `post_delayed` | Processor | ✅ | sample-and-hold every `delay` seconds on the sim clock; `pre` emits nothing until the first delay passes |
+| `pre_periodic_filtered`, `post_periodic_filtered` | Processor | ✅ | pass/block cycles counted in clock ticks; blocked phases hold the last passed value |
 | `all_values` | Combiner | ✅ | |
 | `any_values` | Combiner | ✅ | |
 | `summed` | Combiner | ✅ | |
 | `averaged` | Combiner | ✅ | |
 | `multiplied` | Combiner | ✅ | |
 | `zip_values` | Combiner | ✅ | tuple output; channel order follows wiring order |
+
+The delayed/filtered tools treat one simulation tick as one item, since a real pipeline pulls
+one value per `source_delay`. Their phases anchor to when the node lands on the canvas, and
+editing any node's params restarts its runtime state (queues, phases, hysteresis) — in
+gpiozero terms, new params mean constructing a fresh generator.
+
+**Upstream bug:** gpiozero's `queued` (since 2018, commit `c304718`) runs
+`values = [_normalize(v) for v in values]` — a copy-paste from the `zip_values` form — which
+crashes on a bare device and hangs materialising an infinite `.values` iterator, so it can't
+currently run in a live pipeline. The generated `queued(device, qsize=n)` is the idiomatic
+form and works once that line is fixed to `values = _normalize(values)`. The other four tools
+are verified working against gpiozero 2.0.1's mock pin factory.
 
 ## Device behaviour
 
@@ -149,7 +161,8 @@ in pin dropdowns with an "SPI" note, and decide what happens when a pot is dropp
 
 ## Simulation clock
 
-While any time-based node (an artificial source, or `smoothed`) is on the canvas — or any
+While any time-based node (an artificial source, or a stateful tool like `smoothed`,
+`queued` or the delays/filters) is on the canvas — or any
 device has a `source_delay` longer than one tick — a simulation clock ticks at 10 steps per
 second, the equivalent of `source_delay=0.1`. The wave sources default to `period=36` so one
 cycle takes ~3.6 s, matching gpiozero's defaults (`period=360` at `source_delay=0.01`).

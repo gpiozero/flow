@@ -38,7 +38,13 @@ import {
   outputShapeOf,
   requiredPinParams,
 } from './catalog';
-import { TICK_SECONDS, anyChannelActive, computeValues, createSimState } from './simulation';
+import {
+  TICK_SECONDS,
+  anyChannelActive,
+  computeValues,
+  createSimState,
+  resetNodeState,
+} from './simulation';
 import { FlowContext } from './store';
 import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
 
@@ -152,6 +158,9 @@ function Editor() {
   // count is canonicalised to however many pins could be assigned.
   const updateNodeParam = useCallback(
     (id: string, name: string, value: ParamValue) => {
+      // new params mean a fresh generator in gpiozero terms: restart
+      // the node's queues, delay/filter phases and hysteresis
+      resetNodeState(simRef.current, id);
       setNodes((ns) => {
         const usedPins = pinsInUse(ns);
         return ns.map((n) => {

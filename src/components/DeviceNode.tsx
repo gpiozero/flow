@@ -44,6 +44,14 @@ const NODE_ICONS: Partial<Record<NodeKind, ReactElement | string>> = {
   booleanized: waveIcon('M0 8 Q5 -2 10 8 Q15 18 20 8 V4 H30 V12 H40'),
   // noise settling into a gentle wave
   smoothed: waveIcon('M0 8 L4 4 L8 11 L12 5 L16 10 L20 8 Q25 5 30 8 Q35 11 40 8'),
+  // a sine arriving late: flat while the queue fills
+  queued: waveIcon('M0 8 H14 Q19 -2 24 8 Q29 18 34 8 Q39 0 40 4'),
+  // a long wait, then the signal; and the signal, then the wait
+  pre_delayed: waveIcon('M0 12 H22 V4 H40'),
+  post_delayed: waveIcon('M0 4 H18 V12 H40'),
+  // gaps where values are blocked: leading gap vs trailing gaps
+  pre_periodic_filtered: waveIcon('M8 8 H18 M28 8 H38'),
+  post_periodic_filtered: waveIcon('M0 8 H12 M22 8 H34'),
   // half-range wave growing to full range, and the reverse
   scaled_full: waveIcon('M0 8 Q5 5 10 8 Q15 11 20 8 Q25 -2 30 8 Q35 18 40 8'),
   scaled_half: waveIcon('M0 8 Q5 -2 10 8 Q15 18 20 8 Q25 5 30 8 Q35 11 40 8'),

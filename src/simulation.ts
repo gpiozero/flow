@@ -12,10 +12,15 @@ type BooleanizedState = 'below' | 'in' | 'above';
 
 export interface SimState {
   step: number;
+  /** rolling windows for smoothed and queued */
   smoothQueues: Map<string, number[]>;
   randoms: Map<string, number>;
   sourceSamples: Map<string, { step: number; value: SimValue }>;
   booleanizedStates: Map<string, BooleanizedState>;
+  /** the step at which a delayed/filtered tool first appeared */
+  origins: Map<string, number>;
+  /** last value a delayed/filtered tool sampled or passed */
+  heldValues: Map<string, number>;
 }
 
 /** Seconds per simulation clock step */
@@ -28,6 +33,8 @@ export function createSimState(): SimState {
     randoms: new Map(),
     sourceSamples: new Map(),
     booleanizedStates: new Map(),
+    origins: new Map(),
+    heldValues: new Map(),
   };
 }
 
@@ -94,6 +101,12 @@ export function computeValues(
   }
   for (const id of [...sim.booleanizedStates.keys()]) {
     if (!byId.has(id)) sim.booleanizedStates.delete(id);
+  }
+  for (const id of [...sim.origins.keys()]) {
+    if (!byId.has(id)) sim.origins.delete(id);
+  }
+  for (const id of [...sim.heldValues.keys()]) {
+    if (!byId.has(id)) sim.heldValues.delete(id);
   }
 
   return values;
@@ -319,6 +332,53 @@ function nodeValue(
       if (window.length === 0) return 0;
       return window.reduce((a, b) => a + b, 0) / window.length;
     }
+    case 'queued': {
+      // a delay line: the oldest of the last qsize samples. gpiozero
+      // fills the queue instantly on the first read, so during warm-up
+      // the oldest sample doubles as the current value.
+      const window = sim.smoothQueues.get(node.id) ?? [];
+      const qsize = Math.max(1, Math.floor(Number(params.qsize)) || 1);
+      if (advance || window.length === 0) window.push(inputs.length ? inputs[0] : 0);
+      while (window.length > qsize) window.shift();
+      sim.smoothQueues.set(node.id, window);
+      return window[0] ?? 0;
+    }
+    case 'pre_delayed':
+    case 'post_delayed': {
+      // gpiozero sleeps around each yield, slowing the pull rate; here
+      // that appears as sample-and-hold every delay's worth of ticks.
+      // pre_delayed emits nothing (0) until the first delay has passed.
+      const input = inputs.length ? inputs[0] : 0;
+      const delaySteps = Math.max(1, Math.round(Number(params.delay) / TICK_SECONDS));
+      const age = nodeAge(sim, node.id);
+      const due =
+        kind === 'post_delayed'
+          ? age % delaySteps === 0
+          : age >= delaySteps && age % delaySteps === 0;
+      if (due && (advance || !sim.heldValues.has(node.id)))
+        sim.heldValues.set(node.id, input);
+      return sim.heldValues.get(node.id) ?? 0;
+    }
+    case 'pre_periodic_filtered':
+    case 'post_periodic_filtered': {
+      // one item per clock tick: blocked phases hold the last passed
+      // value (0 before anything has passed), pass phases track live
+      const input = inputs.length ? inputs[0] : 0;
+      const block = Math.max(1, Math.floor(Number(params.block)) || 1);
+      const repeatAfter = Math.max(0, Math.floor(Number(params.repeat_after)) || 0);
+      const age = nodeAge(sim, node.id);
+      let blocked: boolean;
+      if (kind === 'pre_periodic_filtered') {
+        // block first, then pass; repeat_after 0 blocks only once
+        blocked = repeatAfter === 0 ? age < block : age % (block + repeatAfter) < block;
+      } else {
+        // pass first, then block, cycling
+        blocked = age % (repeatAfter + block) >= repeatAfter;
+      }
+      if (blocked) return sim.heldValues.get(node.id) ?? 0;
+      if (advance || !sim.heldValues.has(node.id)) sim.heldValues.set(node.id, input);
+      return input;
+    }
     case 'alternating_values': {
       const base = params.initial_value ? 1 : 0;
       return sim.step % 2 === 0 ? base : 1 - base;
@@ -359,6 +419,30 @@ function readSource(
   if (last && !(advance && sim.step - last.step >= delaySteps)) return last.value;
   sim.sourceSamples.set(node.id, { step: sim.step, value: input });
   return input;
+}
+
+/**
+ * Drop a node's runtime state. Called when its params change: in
+ * gpiozero terms new params mean constructing a fresh generator, so
+ * queues, phases and hysteresis start over.
+ */
+export function resetNodeState(sim: SimState, id: string): void {
+  sim.smoothQueues.delete(id);
+  sim.randoms.delete(id);
+  sim.sourceSamples.delete(id);
+  sim.booleanizedStates.delete(id);
+  sim.origins.delete(id);
+  sim.heldValues.delete(id);
+}
+
+/** Ticks since the node first appeared, anchoring its delay/filter phase */
+function nodeAge(sim: SimState, id: string): number {
+  let origin = sim.origins.get(id);
+  if (origin === undefined) {
+    origin = sim.step;
+    sim.origins.set(id, origin);
+  }
+  return sim.step - origin;
 }
 
 /** Scalar view of a wire value; tuples collapse to their first channel */
