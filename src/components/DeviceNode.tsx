@@ -334,7 +334,9 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
           className={`node-value${tuple ? ' node-value-tuple' : spec.valueKind === 'float' ? ' node-value-float' : ''}`}
         >
           {tuple
-            ? `(${tuple.map((c) => ((data.params.pwm ?? spec.valueKind === 'float') ? c.toFixed(1) : c !== 0 ? '1' : '0')).join(', ')})`
+            ? // channels pad to a fixed width so a sign flipping negative
+              // doesn't change the node's width
+              `(${tuple.map((c) => ((data.params.pwm ?? spec.valueKind === 'float') ? c.toFixed(1).padStart(4) : c !== 0 ? '1' : '0')).join(', ')})`
             : spec.valueKind === 'float'
               ? value.toFixed(2)
               : value > 0

@@ -383,7 +383,7 @@ body {
   display: inline-block;
   text-align: right;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  white-space: pre; /* keep the padding that holds channel widths fixed */
 }
 
 .node-body {
