@@ -15,9 +15,19 @@ browser-side serializer is `src/wire.ts` and the connection hook is `src/pi.ts`.
 
 - gpiozero 2.x and a working pin factory (both stock on Raspberry Pi OS)
 - Python 3.11+
-- `websockets` >= 14
+- `websockets` — any version >= 10.1 (the agent falls back to the legacy API
+  on < 13, so Bookworm's apt package works)
 
-## Deploy
+## Deploy (apt only, no venv)
+
+```sh
+ssh pi 'sudo apt install python3-websockets && mkdir -p ~/gpio-agent'
+scp agent/gpio_agent.py pi:gpio-agent/
+ssh pi 'nohup python3 ~/gpio-agent/gpio_agent.py \
+        > ~/gpio-agent/agent.log 2>&1 < /dev/null &'
+```
+
+## Deploy (venv, newer websockets)
 
 ```sh
 ssh pi 'python3 -m venv --system-site-packages ~/.virtualenvs/gpio-agent &&

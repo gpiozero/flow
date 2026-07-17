@@ -34,7 +34,14 @@ import logging
 import gpiozero
 import gpiozero.tools
 from gpiozero.mixins import SourceMixin, ValuesMixin
-from websockets.asyncio.server import serve
+
+try:
+    from websockets.asyncio.server import serve
+except ImportError:
+    # websockets < 13, e.g. Debian Bookworm's apt python3-websockets 10.4.
+    # The legacy implementation accepts single-argument handlers since 10.1,
+    # and the small API surface used here (async for / send) is identical.
+    from websockets.server import serve
 
 log = logging.getLogger('gpio-agent')
 
