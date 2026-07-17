@@ -32,20 +32,20 @@ just need their node designs (per-channel pins, visuals).
 | --- | --- | --- | --- |
 | Button | Input | ✅ | click latches, hold is momentary |
 | MCP3008 | Input (ADC) | ✅ | modelled as a potentiometer; channels auto-assigned 0-7 |
-| LightSensor | Input | ✅ | simulated with a slider |
+| LightSensor | Input | ✅ | slider; sun icon brightens with the level |
 | MotionSensor | Input | ✅ | simulated with a toggle |
 | LineSensor | Input | ✅ | boolean toggle, same shape as MotionSensor |
 | DistanceSensor | Input | ✅ | slider; two pins (`echo`, `trigger`) like Motor |
-| RotaryEncoder | Input | ✅ | -1..1 slider; a proper knob widget would be a nice follow-up |
+| RotaryEncoder | Input | ✅ | -1..1; drag the knob round, or scroll to step |
 | Other MCP3xxx ADCs | Input (ADC) | ❌ | trivial variants of MCP3008 (channels/resolution) |
 | LED | Output | ✅ | |
 | PWMLED | Output | ✅ | |
 | Buzzer | Output | ✅ | visual only; WebAudio beep would be a fun follow-up |
-| Servo | Output | ✅ | needle sweeps -90° to +90° |
-| AngularServo | Output | ✅ | needle visual is a generic ±90°, not scaled to custom `min_angle`/`max_angle` |
-| Motor | Output | ✅ | two pins, bidirectional bar |
+| Servo | Output | ✅ | horn sweeps -90° to +90° |
+| AngularServo | Output | ✅ | horn follows the configured `min_angle`/`max_angle` range |
+| Motor | Output | ✅ | two pins; wheel spins with speed and direction |
 | RGBLED | Output | ✅ | colour swatch; source must yield (r, g, b) tuples, e.g. from `zip_values`; `pwm=False` snaps to the 8 primary/secondary colours |
-| TonalBuzzer | Output | ❌ | easy now -1..1 values exist; pairs with WebAudio |
+| TonalBuzzer | Output | ✅ | shows the note being played; actual WebAudio sound would be a fun follow-up |
 | PhaseEnableMotor | Output | ❌ | trivial — Motor with a different pin layout |
 | LEDBarGraph | Board | ✅ | scalar value despite being multi-LED; one pin per LED; `pwm=True` dims the partially-covered LED, without it the value reads back quantized to lit/total |
 | LEDBoard | Board | ❌ | unblocked by tuple wires; needs dynamic pin count like LEDBarGraph |
