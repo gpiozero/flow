@@ -32,12 +32,12 @@ just need their node designs (per-channel pins, visuals).
 | --- | --- | --- | --- |
 | Button | Input | ✅ | click latches, hold is momentary |
 | MCP3008 | Input (ADC) | ✅ | modelled as a potentiometer; channels auto-assigned 0-7 |
+| Other MCP3xxx ADCs (MCP3001-MCP3304) | Input (ADC) | ✅ | all eleven chips in their own ADCs drawer; channel pools sized per chip; MCP33xx slide -1..1 in differential mode; single-input chips (MCP3001/3201/3301) take no channel |
 | LightSensor | Input | ✅ | slider; sun icon brightens with the level |
 | MotionSensor | Input | ✅ | simulated with a toggle |
 | LineSensor | Input | ✅ | boolean toggle, same shape as MotionSensor |
 | DistanceSensor | Input | ✅ | slider; two pins (`echo`, `trigger`) like Motor |
 | RotaryEncoder | Input | ✅ | -1..1; drag the knob round, or scroll to step |
-| Other MCP3xxx ADCs | Input (ADC) | ❌ | trivial variants of MCP3008 (channels/resolution) |
 | LED | Output | ✅ | |
 | PWMLED | Output | ✅ | |
 | Buzzer | Output | ✅ | visual only; WebAudio beep would be a fun follow-up |
@@ -129,12 +129,15 @@ New GPIO devices are assigned the next free pin automatically (4-27 first, then 
 resort), and pin dropdowns disable pins already in use, so two devices can never share a pin.
 This covers multi-pin devices too: a Motor takes two distinct pins (`forward`/`backward`), and
 an LEDBarGraph holds one pin per LED — change its led count (1-10) and pins are assigned or
-released to match. MCP3008 pots work the same way with ADC channels, taking the lowest free
-channel from 0-7.
+released to match. ADCs work the same way with channels, taking the lowest free channel on
+their chip; each ADC kind models one physical chip, so channel pools are per kind (two
+MCP3002s share channels 0-1, while an MCP3008 alongside them has its own 0-7).
 
-**Known issue (matters once we target real hardware):** the MCP3008 talks over the SPI bus,
-so constructing one in gpiozero reserves GPIO 8-11 (CE0/MISO/MOSI/SCLK; a second chip on CE1
-would also take GPIO 7). Energenie is similar: all sockets share one radio transmitter that
+**Known issue (matters once we target real hardware):** the MCP3xxx ADCs talk over the SPI
+bus, so constructing one in gpiozero reserves GPIO 8-11 (CE0/MISO/MOSI/SCLK; a second chip on
+CE1 would also take GPIO 7). Relatedly, a canvas mixing different ADC chips generates
+constructors that all sit on CE0 — fine in simulation, but real chips would each need their
+own select pin. Energenie is similar: all sockets share one radio transmitter that
 silently reserves GPIO 17, 22, 23, 27 (data), 24 (mode) and 25 (enable). The app doesn't
 model either — a pot or an Energenie occupies no GPIO pins here, and the auto-assigner will
 happily give those pins to other devices. A canvas mixing a pot with enough

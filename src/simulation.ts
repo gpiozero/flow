@@ -1,5 +1,5 @@
 import type { Edge } from '@xyflow/react';
-import { dynamicPinCount } from './catalog';
+import { adcMin, dynamicPinCount } from './catalog';
 import type { DeviceFlowNode, ParamValue, SimValue } from './types';
 
 /**
@@ -111,13 +111,24 @@ function nodeValue(
   switch (kind) {
     case 'button':
       return state.pressed ? 1 : 0;
-    case 'pot':
     case 'lightsensor':
     case 'distancesensor':
     case 'cputemperature':
     case 'loadaverage':
     case 'diskusage':
       return clamp(Number(state.level ?? 0), 0, 1);
+    case 'pot':
+    case 'mcp3001':
+    case 'mcp3002':
+    case 'mcp3004':
+    case 'mcp3201':
+    case 'mcp3202':
+    case 'mcp3204':
+    case 'mcp3208':
+    case 'mcp3301':
+    case 'mcp3302':
+    case 'mcp3304':
+      return clamp(Number(state.level ?? 0), adcMin(kind, params), 1);
     case 'pingserver':
       return state.up ? 1 : 0;
     case 'timeofday': {

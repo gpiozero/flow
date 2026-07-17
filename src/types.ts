@@ -1,6 +1,6 @@
 import type { Node } from '@xyflow/react';
 
-export type Section = 'inputs' | 'outputs' | 'tools' | 'sources' | 'internal';
+export type Section = 'inputs' | 'outputs' | 'tools' | 'sources' | 'internal' | 'adc';
 
 export type NodeKind =
   | 'button'
@@ -8,6 +8,16 @@ export type NodeKind =
   | 'trafficlights'
   | 'zip_values'
   | 'pot'
+  | 'mcp3001'
+  | 'mcp3002'
+  | 'mcp3004'
+  | 'mcp3201'
+  | 'mcp3202'
+  | 'mcp3204'
+  | 'mcp3208'
+  | 'mcp3301'
+  | 'mcp3302'
+  | 'mcp3304'
   | 'lightsensor'
   | 'motionsensor'
   | 'linesensor'

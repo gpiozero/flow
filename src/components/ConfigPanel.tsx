@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { GPIO_PINS, MCP_CHANNELS, NAME_PATTERN, SPECS, requiredPinParams } from '../catalog';
+import { GPIO_PINS, NAME_PATTERN, SPECS, requiredPinParams } from '../catalog';
 import { deviceConstructor, toolCall } from '../codegen';
 import type { DeviceFlowNode, ParamValue } from '../types';
 
@@ -94,7 +94,7 @@ export function ConfigPanel({
                   value={Number(value)}
                   onChange={(e) => onChangeParam(node.id, p.name, Number(e.target.value))}
                 >
-                  {MCP_CHANNELS.map((channel) => (
+                  {Array.from({ length: (p.max ?? 7) + 1 }, (_, channel) => (
                     <option key={channel} value={channel} disabled={takenChannels.has(channel)}>
                       {channel}
                       {takenChannels.has(channel) ? ' (in use)' : ''}

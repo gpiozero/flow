@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { PointerEvent, ReactElement } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
-import { SPECS, dynamicPinCount } from '../catalog';
+import { SPECS, adcMin, dynamicPinCount } from '../catalog';
 import { useFlow } from '../store';
 import type { DeviceFlowNode, NodeKind } from '../types';
 
@@ -177,35 +177,49 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
           </button>
         );
       case 'pot':
+      case 'mcp3001':
+      case 'mcp3002':
+      case 'mcp3004':
+      case 'mcp3201':
+      case 'mcp3202':
+      case 'mcp3204':
+      case 'mcp3208':
+      case 'mcp3301':
+      case 'mcp3302':
+      case 'mcp3304':
       case 'lightsensor':
       case 'distancesensor':
       case 'cputemperature':
       case 'loadaverage':
       case 'diskusage': {
         const level = Number(data.state.level ?? 0);
+        // signed ADCs (MCP33xx in differential mode) slide -1..1
+        const min = spec.section === 'adc' ? adcMin(data.kind, data.params) : 0;
         const slider = (
           <input
             type="range"
             className="nodrag"
-            min={0}
+            min={min}
             max={1}
             step={0.01}
             value={level}
             onChange={(e) => updateNodeState(id, { level: Number(e.target.value) })}
           />
         );
-        if (data.kind === 'pot')
+        if (spec.section === 'adc') {
+          const fraction = (level - min) / (1 - min);
           return (
             <div className="widget-stack">
               <div className="pot-icon">
                 <div
                   className="pot-slot"
-                  style={{ transform: `rotate(${(level - 0.5) * 270}deg)` }}
+                  style={{ transform: `rotate(${(fraction - 0.5) * 270}deg)` }}
                 />
               </div>
               {slider}
             </div>
           );
+        }
         if (data.kind === 'distancesensor')
           return (
             <div className="widget-stack">
@@ -556,7 +570,18 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
       case 'buttonboard':
         return `${data.params.buttons} buttons`;
       case 'pot':
-        return `channel ${data.params.channel}`;
+      case 'mcp3002':
+      case 'mcp3004':
+      case 'mcp3202':
+      case 'mcp3204':
+      case 'mcp3208':
+      case 'mcp3302':
+      case 'mcp3304':
+        return `channel ${data.params.channel}${data.params.differential ? ' (diff)' : ''}`;
+      case 'mcp3001':
+      case 'mcp3201':
+      case 'mcp3301':
+        return 'differential input';
       default:
         return spec.section === 'sources' ? 'artificial source' : 'source tool';
     }

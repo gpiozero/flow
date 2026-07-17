@@ -1,5 +1,43 @@
 import type { NodeKind, NodeSpec, ParamValue, Section } from './types';
 
+/**
+ * An MCP3xxx ADC spec: multi-channel chips get a channel dropdown
+ * (sized by the chip) and a differential toggle; single-channel chips
+ * (MCP3001/3201/3301) are inherently differential and take neither.
+ */
+function adcSpec(
+  kind: NodeKind,
+  label: string,
+  description: string,
+  channels: number,
+  signed = false,
+): NodeSpec {
+  return {
+    kind,
+    label,
+    section: 'adc',
+    description,
+    valueKind: 'float',
+    hasInput: false,
+    hasOutput: true,
+    params:
+      channels > 1
+        ? [
+            { name: 'channel', label: 'channel', type: 'channel', default: 0, max: channels - 1 },
+            { name: 'differential', label: 'differential', type: 'bool', default: false },
+          ]
+        : [],
+    initialState: { level: signed ? 0 : 0.5 },
+  };
+}
+
+/** Lower bound of an ADC's value: MCP33xx chips are signed when differential */
+export function adcMin(kind: NodeKind, params: Record<string, ParamValue>): number {
+  if (kind === 'mcp3301') return -1;
+  if ((kind === 'mcp3302' || kind === 'mcp3304') && params.differential) return -1;
+  return 0;
+}
+
 export const SPECS: Record<NodeKind, NodeSpec> = {
   button: {
     kind: 'button',
@@ -18,16 +56,27 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
   pot: {
     kind: 'pot',
     label: 'MCP3008',
-    section: 'inputs',
-    description: 'Potentiometer via MCP3008 ADC',
+    section: 'adc',
+    description: 'Potentiometer via MCP3008 ADC: 10-bit, 8 channels',
     valueKind: 'float',
     hasInput: false,
     hasOutput: true,
     params: [
-      { name: 'channel', label: 'channel', type: 'channel', default: 0 },
+      { name: 'channel', label: 'channel', type: 'channel', default: 0, max: 7 },
+      { name: 'differential', label: 'differential', type: 'bool', default: false },
     ],
     initialState: { level: 0.5 },
   },
+  mcp3001: adcSpec('mcp3001', 'MCP3001', '10-bit ADC, single differential input', 1),
+  mcp3002: adcSpec('mcp3002', 'MCP3002', '10-bit ADC with 2 channels', 2),
+  mcp3004: adcSpec('mcp3004', 'MCP3004', '10-bit ADC with 4 channels', 4),
+  mcp3201: adcSpec('mcp3201', 'MCP3201', '12-bit ADC, single differential input', 1),
+  mcp3202: adcSpec('mcp3202', 'MCP3202', '12-bit ADC with 2 channels', 2),
+  mcp3204: adcSpec('mcp3204', 'MCP3204', '12-bit ADC with 4 channels', 4),
+  mcp3208: adcSpec('mcp3208', 'MCP3208', '12-bit ADC with 8 channels', 8),
+  mcp3301: adcSpec('mcp3301', 'MCP3301', '13-bit ADC, single signed differential input (-1..1)', 1, true),
+  mcp3302: adcSpec('mcp3302', 'MCP3302', '13-bit ADC, 4 channels; signed -1..1 when differential', 4),
+  mcp3304: adcSpec('mcp3304', 'MCP3304', '13-bit ADC, 8 channels; signed -1..1 when differential', 8),
   lightsensor: {
     kind: 'lightsensor',
     label: 'LightSensor',
@@ -652,13 +701,29 @@ export const SECTIONS: { id: Section; title: string; kinds: NodeKind[] }[] = [
     title: 'Inputs',
     kinds: [
       'button',
-      'pot',
       'lightsensor',
       'motionsensor',
       'linesensor',
       'distancesensor',
       'rotaryencoder',
       'buttonboard',
+    ],
+  },
+  {
+    id: 'adc',
+    title: 'ADCs',
+    kinds: [
+      'pot',
+      'mcp3001',
+      'mcp3002',
+      'mcp3004',
+      'mcp3201',
+      'mcp3202',
+      'mcp3204',
+      'mcp3208',
+      'mcp3301',
+      'mcp3302',
+      'mcp3304',
     ],
   },
   {
@@ -728,11 +793,15 @@ export function nextFreePin(usedPins: ReadonlySet<number>): number | null {
   return null;
 }
 
-/** MCP3008 channels, in display and assignment order */
-export const MCP_CHANNELS = Array.from({ length: 8 }, (_, i) => i);
-
-export function nextFreeChannel(usedChannels: ReadonlySet<number>): number | null {
-  for (const channel of MCP_CHANNELS) {
+/**
+ * Lowest free channel on a chip with `count` channels. Channel pools
+ * are per device kind: each ADC kind models one physical chip.
+ */
+export function nextFreeChannel(
+  usedChannels: ReadonlySet<number>,
+  count: number,
+): number | null {
+  for (let channel = 0; channel < count; channel++) {
     if (!usedChannels.has(channel)) return channel;
   }
   return null;
@@ -751,7 +820,9 @@ export function outputShapeOf(kind: NodeKind): 'scalar' | 'tuple' {
 
 export function isDevice(kind: NodeKind): boolean {
   const section = SPECS[kind].section;
-  return section === 'inputs' || section === 'outputs' || section === 'internal';
+  return (
+    section === 'inputs' || section === 'outputs' || section === 'internal' || section === 'adc'
+  );
 }
 
 export function nextDeviceName(kind: NodeKind, usedNames: ReadonlySet<string>): string {

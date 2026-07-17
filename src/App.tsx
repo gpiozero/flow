@@ -280,12 +280,16 @@ function Editor() {
         params[name] = pin;
         usedPins.add(pin);
       }
-      const usedChannels = channelsInUse(nodes);
+      // each ADC kind is one chip, so channel pools are per kind
+      const usedChannels = channelsInUse(nodes.filter((n) => n.data.kind === kind));
       for (const p of SPECS[kind].params) {
         if (p.type !== 'channel') continue;
-        const channel = nextFreeChannel(usedChannels);
+        const count = (p.max ?? 7) + 1;
+        const channel = nextFreeChannel(usedChannels, count);
         if (channel === null) {
-          showWarning(`${SPECS[kind].label} needs a free ADC channel, but all 8 are in use`);
+          showWarning(
+            `${SPECS[kind].label} needs a free ADC channel, but all ${count} are in use`,
+          );
           return;
         }
         params[p.name] = channel;
@@ -434,9 +438,15 @@ function Editor() {
     () => namesInUse(nodes.filter((n) => n.id !== selectedId)),
     [nodes, selectedId],
   );
+  // channels clash only within the same chip kind
   const takenChannels = useMemo(
-    () => channelsInUse(nodes.filter((n) => n.id !== selectedId)),
-    [nodes, selectedId],
+    () =>
+      channelsInUse(
+        nodes.filter(
+          (n) => n.id !== selectedId && n.data.kind === selectedNode?.data.kind,
+        ),
+      ),
+    [nodes, selectedId, selectedNode],
   );
 
   return (
