@@ -745,6 +745,41 @@ body {
   transition: transform 0.1s;
 }
 
+/* LightSensor: a sun whose rays and glow brighten with the level;
+   at zero it's just a dull grey disc */
+
+.light-sun {
+  position: relative;
+  width: 26px;
+  height: 26px;
+}
+
+.light-sun::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f1f5f9, #cbd5e1 75%);
+  border: 1px solid #94a3b8;
+}
+
+.light-rays {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from -4deg, #f59e0b 0deg 8deg, transparent 8deg 45deg);
+  mask: radial-gradient(circle, transparent 9px, #000 9.5px);
+  transition: opacity 0.1s;
+}
+
+.light-glow {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fef9c3, #fbbf24 75%);
+  transition: opacity 0.1s;
+}
+
 /* DistanceSensor: an HC-SR04 with a target sitting at the measured
    distance along a dashed sight line */
 

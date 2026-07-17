@@ -205,7 +205,15 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
               {slider}
             </div>
           );
-        return slider;
+        return (
+          <div className="widget-stack">
+            <div className="light-sun">
+              <div className="light-rays" style={{ opacity: level }} />
+              <div className="light-glow" style={{ opacity: level }} />
+            </div>
+            {slider}
+          </div>
+        );
       }
       case 'rotaryencoder':
         return (
