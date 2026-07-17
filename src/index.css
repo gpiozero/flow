@@ -512,6 +512,40 @@ body {
   }
 }
 
+/* RotaryEncoder: an endless knob; drag it round (or scroll) to step */
+
+.encoder-knob {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  border: 1px solid var(--c-border);
+  cursor: grab;
+  touch-action: none;
+}
+
+.encoder-knob:active {
+  cursor: grabbing;
+}
+
+.encoder-pointer {
+  position: absolute;
+  inset: 0;
+}
+
+.encoder-pointer::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  width: 4px;
+  height: 10px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: #334155;
+}
+
 /* Servo: a needle pivoting at its base, -90deg (value -1) to +90deg (value 1) */
 
 .servo-gauge {

@@ -10,6 +10,9 @@ import type { DeviceFlowNode } from '../types';
 // as a momentary hold that releases on pointer-up.
 const TAP_MS = 300;
 
+// Rotary encoder detent size: 20 steps per revolution, like a KY-040
+const DEG_PER_STEP = 18;
+
 export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<DeviceFlowNode>) {
   const spec = SPECS[data.kind];
   const { deleteElements } = useReactFlow();
@@ -20,6 +23,52 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
   const tuple = Array.isArray(raw) ? raw : null;
   const channel = (i: number) => (tuple ? (tuple[i] ?? 0) : 0);
   const pressInfo = useRef<{ wasPressed: boolean; at: number } | null>(null);
+  // last pointer angle plus rotation not yet big enough to be a step
+  const knobDrag = useRef<{ angle: number; remainder: number } | null>(null);
+  // authoritative step count: rapid wheel/drag events can outpace the
+  // re-render, so reading steps back from props would drop increments
+  const knobSteps = useRef<number | null>(null);
+
+  const rotate = (change: number) => {
+    const maxSteps = Math.floor(Number(data.params.max_steps));
+    let steps = (knobSteps.current ?? Number(data.state.steps ?? 0)) + change;
+    if (maxSteps > 0) {
+      if (data.params.wrap)
+        steps = ((((steps + maxSteps) % (2 * maxSteps)) + 2 * maxSteps) % (2 * maxSteps)) - maxSteps;
+      else steps = Math.min(maxSteps, Math.max(-maxSteps, steps));
+    }
+    knobSteps.current = steps;
+    updateNodeState(id, { steps });
+  };
+
+  const pointerAngle = (e: PointerEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const dx = e.clientX - (rect.left + rect.width / 2);
+    const dy = e.clientY - (rect.top + rect.height / 2);
+    return (Math.atan2(dy, dx) * 180) / Math.PI;
+  };
+
+  const onKnobDown = (e: PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    knobDrag.current = { angle: pointerAngle(e), remainder: 0 };
+  };
+
+  const onKnobMove = (e: PointerEvent<HTMLDivElement>) => {
+    const drag = knobDrag.current;
+    if (!drag) return;
+    const angle = pointerAngle(e);
+    let delta = angle - drag.angle;
+    // take the short way round so crossing ±180° isn't a near-full turn
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+    drag.angle = angle;
+    drag.remainder += delta;
+    const change = Math.trunc(drag.remainder / DEG_PER_STEP);
+    if (change !== 0) {
+      drag.remainder -= change * DEG_PER_STEP;
+      rotate(change);
+    }
+  };
 
   const onButtonDown = (e: PointerEvent<HTMLButtonElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -69,15 +118,22 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         );
       case 'rotaryencoder':
         return (
-          <input
-            type="range"
-            className="nodrag"
-            min={-1}
-            max={1}
-            step={0.01}
-            value={Number(data.state.level ?? 0)}
-            onChange={(e) => updateNodeState(id, { level: Number(e.target.value) })}
-          />
+          <div
+            className="encoder-knob nodrag nowheel"
+            title="Drag round to rotate; scroll to step"
+            onPointerDown={onKnobDown}
+            onPointerMove={onKnobMove}
+            onPointerUp={() => (knobDrag.current = null)}
+            onPointerCancel={() => (knobDrag.current = null)}
+            onWheel={(e) => rotate(e.deltaY < 0 ? 1 : -1)}
+          >
+            <div
+              className="encoder-pointer"
+              style={{
+                transform: `rotate(${Number(data.state.steps ?? 0) * DEG_PER_STEP}deg)`,
+              }}
+            />
+          </div>
         );
       case 'motionsensor':
         return (

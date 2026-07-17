@@ -119,8 +119,13 @@ function nodeValue(
       return state.motion ? 1 : 0;
     case 'linesensor':
       return state.detected ? 1 : 0;
-    case 'rotaryencoder':
-      return clamp(Number(state.level ?? 0), -1, 1);
+    case 'rotaryencoder': {
+      // value = steps / max_steps; with max_steps=0 steps are unbounded
+      // and value is always 0, as in gpiozero
+      const maxSteps = Math.floor(Number(params.max_steps));
+      if (!(maxSteps > 0)) return 0;
+      return clamp(Number(state.steps ?? 0) / maxSteps, -1, 1);
+    }
     case 'led':
     case 'buzzer':
       // value is boolean: any truthy (nonzero) source value turns it on

@@ -86,8 +86,10 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     params: [
       { name: 'a', label: 'a', type: 'pin', default: 23 },
       { name: 'b', label: 'b', type: 'pin', default: 24 },
+      { name: 'max_steps', label: 'max_steps', type: 'int', default: 16, min: 0 },
+      { name: 'wrap', label: 'wrap', type: 'bool', default: false },
     ],
-    initialState: { level: 0 },
+    initialState: { steps: 0 },
   },
   led: {
     kind: 'led',
