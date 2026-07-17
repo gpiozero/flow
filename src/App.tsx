@@ -389,6 +389,14 @@ function Editor() {
     setSelectedId(selected.length === 1 ? selected[0].id : null);
   }, []);
 
+  // Nothing is persisted, so clearing loses the whole canvas: confirm.
+  const clearCanvas = useCallback(() => {
+    if (!window.confirm('Clear the canvas? All nodes and wires will be removed.')) return;
+    setNodes([]);
+    setEdges([]);
+    setSelectedId(null);
+  }, [setNodes, setEdges]);
+
   const onEdgeDoubleClick = useCallback(
     (_: unknown, edge: Edge) => {
       setEdges((eds) => eds.filter((e) => e.id !== edge.id));
@@ -436,6 +444,13 @@ function Editor() {
         <header className="topbar">
           <h1>gpiozero flow</h1>
           <span className="topbar-note">MVP — simulated in the browser, no real GPIO</span>
+          <button
+            className="topbar-clear"
+            onClick={clearCanvas}
+            disabled={nodes.length === 0}
+          >
+            Clear
+          </button>
           <button className="topbar-script" onClick={() => setScriptOpen(true)}>
             View Python script
           </button>
