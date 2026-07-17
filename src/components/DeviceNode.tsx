@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { PointerEvent } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
@@ -13,6 +13,9 @@ const TAP_MS = 300;
 // Rotary encoder detent size: 20 steps per revolution, like a KY-040
 const DEG_PER_STEP = 18;
 
+// Motor wheel speed at full value: one revolution per second
+const WHEEL_DEG_PER_SEC = 360;
+
 export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<DeviceFlowNode>) {
   const spec = SPECS[data.kind];
   const { deleteElements } = useReactFlow();
@@ -23,6 +26,26 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
   const tuple = Array.isArray(raw) ? raw : null;
   const channel = (i: number) => (tuple ? (tuple[i] ?? 0) : 0);
   const pressInfo = useRef<{ wasPressed: boolean; at: number } | null>(null);
+
+  // The motor wheel turns via direct DOM writes from a rAF loop: the
+  // angle accumulates at a rate set by the value, so speed changes and
+  // reversals stay smooth without re-rendering every frame.
+  const wheelRef = useRef<HTMLDivElement | null>(null);
+  const wheelAngle = useRef(0);
+  const wheelSpeed = data.kind === 'motor' ? value : 0;
+  useEffect(() => {
+    if (wheelSpeed === 0) return;
+    let last = performance.now();
+    let raf = requestAnimationFrame(function turn(now: number) {
+      wheelAngle.current =
+        (wheelAngle.current + ((now - last) / 1000) * wheelSpeed * WHEEL_DEG_PER_SEC) % 360;
+      last = now;
+      if (wheelRef.current)
+        wheelRef.current.style.transform = `rotate(${wheelAngle.current}deg)`;
+      raf = requestAnimationFrame(turn);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [wheelSpeed]);
   // last pointer angle plus rotation not yet big enough to be a step
   const knobDrag = useRef<{ angle: number; remainder: number } | null>(null);
   // authoritative step count: rapid wheel/drag events can outpace the
@@ -90,8 +113,10 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
       case 'button':
         return (
           <button
-            className={`push-button nodrag${data.state.pressed ? ' pressed' : ''}`}
+            className={`tactile-button nodrag${data.state.pressed ? ' pressed' : ''}`}
             title="Click to toggle; hold for a momentary press"
+            aria-pressed={Boolean(data.state.pressed)}
+            aria-label="push button"
             onPointerDown={onButtonDown}
             onPointerUp={onButtonUp}
             onPointerCancel={() => {
@@ -99,7 +124,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
               updateNodeState(id, { pressed: false });
             }}
           >
-            {data.state.pressed ? 'release' : 'press'}
+            <span className="tactile-cap" />
           </button>
         );
       case 'pot':
@@ -138,21 +163,27 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
       case 'motionsensor':
         return (
           <button
-            className={`push-button nodrag${data.state.motion ? ' pressed' : ''}`}
+            className={`pir nodrag${data.state.motion ? ' active' : ''}`}
             title="Click to toggle motion"
+            aria-pressed={Boolean(data.state.motion)}
+            aria-label="motion"
             onClick={() => updateNodeState(id, { motion: !data.state.motion })}
           >
-            {data.state.motion ? 'motion' : 'still'}
+            <span className="pir-dome" />
           </button>
         );
       case 'linesensor':
         return (
           <button
-            className={`push-button nodrag${data.state.detected ? ' pressed' : ''}`}
+            className={`line-sensor nodrag${data.state.detected ? ' active' : ''}`}
             title="Click to toggle line detection"
+            aria-pressed={Boolean(data.state.detected)}
+            aria-label="line detected"
             onClick={() => updateNodeState(id, { detected: !data.state.detected })}
           >
-            {data.state.detected ? 'line' : 'no line'}
+            <span className="line-eye emitter" />
+            <span className="line-eye detector" />
+            <span className="line-indicator" />
           </button>
         );
       case 'led':
@@ -170,7 +201,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
           </div>
         );
       case 'buzzer':
-        return <div className={`buzzer${value !== 0 ? ' buzzing' : ''}`}>♪</div>;
+        return <div className={`buzzer${value !== 0 ? ' buzzing' : ''}`} />;
       case 'rgbled': {
         const [r, g, b] = [channel(0), channel(1), channel(2)];
         const on = r > 0 || g > 0 || b > 0;
@@ -200,25 +231,29 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
           </div>
         );
       case 'servo':
-      case 'angularservo':
+      case 'angularservo': {
+        // the horn shows the real angle: AngularServo maps -1..1 onto
+        // its min_angle..max_angle range, plain Servo onto ±90°
+        let angle = value * 90;
+        if (data.kind === 'angularservo') {
+          const minAngle = Number(data.params.min_angle);
+          const maxAngle = Number(data.params.max_angle);
+          angle = minAngle + ((value + 1) / 2) * (maxAngle - minAngle);
+        }
         return (
-          <div className="servo-gauge">
-            <div className="servo-arm" style={{ transform: `rotate(${value * 90}deg)` }} />
-            <div className="servo-hub" />
+          <div className="servo">
+            <div className="servo-shaft">
+              <div className="servo-horn" style={{ transform: `rotate(${angle}deg)` }} />
+            </div>
           </div>
         );
+      }
       case 'motor':
         return (
-          <div className="motor-track">
-            <div
-              className="motor-fill"
-              style={
-                value >= 0
-                  ? { left: '50%', width: `${value * 50}%` }
-                  : { right: '50%', width: `${-value * 50}%` }
-              }
-            />
-            <div className="motor-centre" />
+          <div className="motor-wheel" ref={wheelRef}>
+            <div className="motor-spoke" />
+            <div className="motor-spoke cross" />
+            <div className="motor-hub" />
           </div>
         );
       case 'ledbargraph': {

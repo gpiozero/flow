@@ -402,30 +402,161 @@ body {
   padding: 0 8px 6px;
 }
 
-.push-button {
-  border: 1px solid #9ca3af;
-  border-radius: 999px;
-  padding: 4px 14px;
-  min-width: 72px;
-  text-align: center;
-  background: #e5e7eb;
+/* Button: a tactile push switch — dark body, corner pins, red cap that
+   sinks while pressed */
+
+.tactile-button {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid #1f2937;
+  border-radius: 6px;
+  background: #374151;
   cursor: pointer;
-  font-size: 11px;
   touch-action: none;
 }
 
-.push-button.pressed {
-  background: #9ca3af;
+/* the four corner pins, one dot box-shadowed to the other three */
+.tactile-button::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  box-shadow:
+    20px 0 0 #cbd5e1,
+    0 20px 0 #cbd5e1,
+    20px 20px 0 #cbd5e1;
 }
+
+.tactile-cap {
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f87171, #dc2626 70%);
+  box-shadow: 0 2px 0 #991b1b;
+  transition:
+    transform 0.05s,
+    box-shadow 0.05s;
+}
+
+.tactile-button.pressed .tactile-cap {
+  transform: translateY(2px);
+  box-shadow: none;
+  background: radial-gradient(circle at 35% 30%, #ef4444, #b91c1c 70%);
+}
+
+/* MotionSensor: a PIR module, fresnel dome on a PCB; the dome glows
+   while motion is detected */
+
+.pir {
+  position: relative;
+  width: 44px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid #14532d;
+  border-radius: 4px;
+  background: #166534;
+  cursor: pointer;
+}
+
+.pir-dome {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffffff, #cbd5e1 75%);
+  transition:
+    background 0.1s,
+    box-shadow 0.1s;
+}
+
+.pir.active .pir-dome {
+  background: radial-gradient(circle at 35% 30%, #fff7ed, #fdba74 75%);
+  box-shadow: 0 0 10px 2px rgba(251, 146, 60, 0.6);
+}
+
+/* LineSensor: an IR reflectance board, emitter and detector eyes plus
+   an indicator LED that lights when the line is seen */
+
+.line-sensor {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 44px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid #172554;
+  border-radius: 4px;
+  background: #1e3a8a;
+  cursor: pointer;
+}
+
+.line-eye {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.line-eye.emitter {
+  background: radial-gradient(circle at 35% 30%, #dbeafe, #93c5fd 70%);
+}
+
+.line-eye.detector {
+  background: radial-gradient(circle at 35% 30%, #475569, #0f172a 70%);
+}
+
+.line-indicator {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #7f1d1d;
+  transition:
+    background 0.1s,
+    box-shadow 0.1s;
+}
+
+.line-sensor.active .line-indicator {
+  background: #ef4444;
+  box-shadow: 0 0 6px 1px rgba(239, 68, 68, 0.8);
+}
+
+/* LED: a 5mm LED — domed body on two legs; PWM/RGB fills sit inside
+   the same body */
 
 .led-dot {
   position: relative;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
+  width: 20px;
+  height: 24px;
+  margin-bottom: 6px;
+  border-radius: 10px 10px 3px 3px;
   background: #d1d5db;
   border: 1px solid #9ca3af;
   transition: background 0.1s;
+}
+
+/* the legs, one box-shadowed from the other */
+.led-dot::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 4px;
+  width: 2px;
+  height: 6px;
+  background: #94a3b8;
+  box-shadow: 8px 0 0 #94a3b8;
 }
 
 .led-dot.lit {
@@ -437,7 +568,7 @@ body {
 .pwm-fill {
   position: absolute;
   inset: -1px;
-  border-radius: 50%;
+  border-radius: inherit;
   background: #ef4444;
   border: 1px solid #dc2626;
 }
@@ -445,7 +576,7 @@ body {
 .rgb-fill {
   position: absolute;
   inset: -1px;
-  border-radius: 50%;
+  border-radius: inherit;
   transition: background 0.1s;
 }
 
@@ -491,14 +622,30 @@ body {
   box-shadow: 0 0 8px 2px rgba(34, 197, 94, 0.7);
 }
 
+/* Buzzer: a piezo disc, black cylinder with a sound hole; it shakes
+   while sounding */
+
 .buzzer {
-  font-size: 20px;
-  line-height: 1;
-  color: #94a3b8;
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #4b5563, #111827 75%);
+}
+
+.buzzer::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: #000;
 }
 
 .buzzer.buzzing {
-  color: #f59e0b;
   animation: buzz 0.15s linear infinite;
 }
 
@@ -546,66 +693,115 @@ body {
   background: #334155;
 }
 
-/* Servo: a needle pivoting at its base, -90deg (value -1) to +90deg (value 1) */
+/* Servo: a micro servo from above — blue body, mounting ears with
+   screw holes, offset output shaft, and a horn swinging with the value
+   (straight up at 0, +90° clockwise at 1) */
 
-.servo-gauge {
+.servo {
   position: relative;
-  width: 64px;
-  height: 32px;
-  overflow: hidden;
+  width: 56px;
+  height: 26px;
+  margin-top: 12px; /* room for the horn to swing above the body */
+  border-radius: 4px;
+  background: #2563eb;
+  border: 1px solid #1e40af;
 }
 
-.servo-arm {
+/* the mounting ears, a screw hole in each */
+.servo::before,
+.servo::after {
+  content: '';
   position: absolute;
-  bottom: 2px;
+  top: 50%;
+  width: 7px;
+  height: 12px;
+  margin-top: -6px;
+  border-radius: 2px;
+  background: radial-gradient(circle, #1e3a8a 0 1.5px, #2563eb 1.5px);
+  border: 1px solid #1e40af;
+}
+
+.servo::before {
+  left: -9px;
+}
+
+.servo::after {
+  right: -9px;
+}
+
+.servo-shaft {
+  position: absolute;
+  top: 50%;
+  left: 13px;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border-radius: 50%;
+  background: #93c5fd;
+  border: 1px solid #60a5fa;
+}
+
+.servo-shaft::after {
+  content: '';
+  position: absolute;
+  top: 50%;
   left: 50%;
-  width: 2px;
-  height: 26px;
-  margin-left: -1px;
-  background: #334155;
-  border-radius: 1px;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: #1e40af;
+}
+
+.servo-horn {
+  position: absolute;
+  bottom: 50%;
+  left: 50%;
+  width: 4px;
+  height: 19px;
+  margin-left: -2px;
+  border-radius: 2px 2px 0 0;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
   transform-origin: bottom center;
   transition: transform 0.1s;
 }
 
-.servo-hub {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  width: 8px;
-  height: 8px;
-  margin-left: -4px;
+/* Motor: a spoked wheel spinning clockwise for forward, anticlockwise
+   for backward, at a rate proportional to the value */
+
+.motor-wheel {
+  position: relative;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
+  background: #e2e8f0;
+  border: 5px solid #334155;
+}
+
+.motor-spoke {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  margin-top: -2px;
   background: #64748b;
 }
 
-/* Motor: a bar filling right of centre for forward, left for backward */
-
-.motor-track {
-  position: relative;
-  width: 90px;
-  height: 10px;
-  background: #e2e8f0;
-  border: 1px solid var(--c-border);
-  border-radius: 5px;
-  overflow: hidden;
+.motor-spoke.cross {
+  transform: rotate(90deg);
 }
 
-.motor-fill {
+.motor-hub {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  background: #2f9e44;
-  transition: width 0.1s;
-}
-
-.motor-centre {
-  position: absolute;
-  top: 0;
-  bottom: 0;
+  top: 50%;
   left: 50%;
-  width: 1px;
-  background: #94a3b8;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: #334155;
 }
 
 .bar-graph {
