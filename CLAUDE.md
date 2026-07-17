@@ -2,6 +2,13 @@
 
 A web app project providing a node-based drag & drop interface for gpiozero.
 
+## Running & verifying
+
+`npm run dev` serves on http://localhost:5173/ with hot reload. To drive the app in a
+browser (drop nodes, wire them, screenshot), follow `.claude/skills/run-app/SKILL.md` —
+it has working Playwright helpers; don't rediscover the drag & drop mechanics. Use the
+system Chrome (`channel: 'chrome'`), never `npx playwright install`.
+
 ## Background
 
 ### gpiozero
