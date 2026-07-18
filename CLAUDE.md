@@ -46,5 +46,6 @@ Python processes.
 - **Simulation**: live value simulation in the browser — interacting with an input node (e.g.
   pressing a Button) propagates values through wires to tools and output nodes, mirroring
   source/values semantics in JS
-- **Persistence**: none for the MVP; canvas state is ephemeral (but the graph model should be a
-  serializable structure so save/load and a future Python backend are easy to add)
+- **Persistence**: canvas state (nodes + wires) is saved to localStorage on change and restored on
+  load (src/persist.ts); the graph model stays a serializable structure so a future Python backend
+  is easy to add

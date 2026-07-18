@@ -53,6 +53,7 @@ import type { BoardSpec } from './boards';
 import { pinDisplay } from './pins';
 import type { PinNumbering } from './pins';
 import { splitParts } from './split';
+import { loadCanvas, nextIdCounter, saveCanvas } from './persist';
 import { convertParams, convertTarget } from './convert';
 import { FlowContext } from './store';
 import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
@@ -94,8 +95,10 @@ function pinsInUse(nodes: DeviceFlowNode[]): Set<number> {
 }
 
 function Editor() {
-  const [nodes, setNodes, onNodesChange] = useNodesState<DeviceFlowNode>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  // the canvas survives reloads: restored once here, saved on change below
+  const [initialCanvas] = useState(loadCanvas);
+  const [nodes, setNodes, onNodesChange] = useNodesState<DeviceFlowNode>(initialCanvas.nodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialCanvas.edges);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [scriptOpen, setScriptOpen] = useState(false);
   const [pinoutOpen, setPinoutOpen] = useState(false);
@@ -122,7 +125,12 @@ function Editor() {
 
   useEffect(() => () => window.clearTimeout(warningTimer.current), []);
   const { screenToFlowPosition } = useReactFlow();
-  const idCounter = useRef(1);
+  const idCounter = useRef(nextIdCounter(initialCanvas.nodes));
+
+  useEffect(() => {
+    const timer = setTimeout(() => saveCanvas(nodes, edges), 300);
+    return () => clearTimeout(timer);
+  }, [nodes, edges]);
 
   // The simulation clock runs at 10 steps/s whenever a time-based node
   // is on the canvas, or a device's source_delay is long enough that
@@ -565,7 +573,7 @@ function Editor() {
     [setNodes],
   );
 
-  // Nothing is persisted, so clearing loses the whole canvas: confirm.
+  // Clearing empties the saved canvas too — it's unrecoverable: confirm.
   const clearCanvas = useCallback(() => {
     if (!window.confirm('Clear the canvas? All nodes and wires will be removed.')) return;
     setNodes([]);
