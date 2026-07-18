@@ -23,7 +23,7 @@ import { ConfigPanel } from './components/ConfigPanel';
 import { DeviceNode } from './components/DeviceNode';
 import { HostCombo } from './components/HostCombo';
 import { ScriptModal } from './components/ScriptModal';
-import { DRAG_MIME, Sidebar } from './components/Sidebar';
+import { BOARD_MIME, DRAG_MIME, Sidebar } from './components/Sidebar';
 import { WireEdge } from './components/WireEdge';
 import {
   PIN_ASSIGN_ORDER,
@@ -47,6 +47,9 @@ import {
   resetNodeState,
 } from './simulation';
 import { usePiLink } from './pi';
+import { BOARDS } from './boards';
+import type { BoardSpec } from './boards';
+import { pinDisplay } from './pins';
 import type { PinNumbering } from './pins';
 import { FlowContext } from './store';
 import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
@@ -360,14 +363,66 @@ function Editor() {
     [nodes, setNodes, showWarning],
   );
 
+  // Expand a board recipe: create every component on its fixed pins,
+  // or refuse with a warning if any of those pins is already taken —
+  // unlike loose components, a board's pins are physically wired.
+  const materialiseBoard = useCallback(
+    (board: BoardSpec, position: { x: number; y: number }) => {
+      const usedPins = pinsInUse(nodes);
+      const conflicts = new Set<number>();
+      for (const c of board.components) {
+        const params = { ...defaultParams(c.kind), ...c.params };
+        for (const name of requiredPinParams(c.kind, params)) {
+          const pin = Number(params[name]);
+          if (usedPins.has(pin)) conflicts.add(pin);
+        }
+      }
+      if (conflicts.size > 0) {
+        const pins = [...conflicts]
+          .sort((a, b) => a - b)
+          .map((p) => pinDisplay(p, numbering))
+          .join(', ');
+        showWarning(
+          `${board.label} needs ${conflicts.size === 1 ? 'pin' : 'pins'} ${pins}, ` +
+            `already in use`,
+        );
+        return;
+      }
+      const usedNames = namesInUse(nodes);
+      const created: DeviceFlowNode[] = board.components.map((c) => {
+        const name = nextDeviceName(c.name, usedNames);
+        usedNames.add(name);
+        return {
+          id: `${c.kind}-${idCounter.current++}`,
+          type: 'device',
+          position: { x: position.x + c.offset.x, y: position.y + c.offset.y },
+          data: {
+            kind: c.kind,
+            name,
+            params: { ...defaultParams(c.kind), ...c.params },
+            state: defaultState(c.kind),
+          },
+        };
+      });
+      setNodes((ns) => [...ns, ...created]);
+    },
+    [nodes, setNodes, showWarning, numbering],
+  );
+
   const onDrop = useCallback(
     (e: DragEvent<HTMLDivElement>) => {
       e.preventDefault();
+      const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      const boardId = e.dataTransfer.getData(BOARD_MIME);
+      if (boardId && boardId in BOARDS) {
+        materialiseBoard(BOARDS[boardId], position);
+        return;
+      }
       const kind = e.dataTransfer.getData(DRAG_MIME) as NodeKind | '';
       if (!kind || !(kind in SPECS)) return;
-      materialiseNode(kind, screenToFlowPosition({ x: e.clientX, y: e.clientY }));
+      materialiseNode(kind, position);
     },
-    [materialiseNode, screenToFlowPosition],
+    [materialiseNode, materialiseBoard, screenToFlowPosition],
   );
 
   // Copy/paste: Ctrl/Cmd+C snapshots the selected node, each Ctrl/Cmd+V

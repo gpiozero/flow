@@ -892,10 +892,10 @@ export function isDevice(kind: NodeKind): boolean {
   );
 }
 
-export function nextDeviceName(kind: NodeKind, usedNames: ReadonlySet<string>): string {
-  if (!usedNames.has(kind)) return kind;
+export function nextDeviceName(base: string, usedNames: ReadonlySet<string>): string {
+  if (!usedNames.has(base)) return base;
   for (let i = 2; ; i++) {
-    const name = `${kind}${i}`;
+    const name = `${base}${i}`;
     if (!usedNames.has(name)) return name;
   }
 }

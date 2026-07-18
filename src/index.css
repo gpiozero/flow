@@ -4,6 +4,7 @@
   --c-tools: #7048e8;
   --c-internal: #0c8599;
   --c-adc: #d6336c;
+  --c-boards: #b08800;
   --c-sources: #0c8599;
   --c-border: #d0d7de;
   --c-muted: #6b7280;
@@ -418,6 +419,10 @@ body {
 
 .palette-item.section-adc {
   border-left-color: var(--c-adc);
+}
+
+.palette-item.section-boards {
+  border-left-color: var(--c-boards);
 }
 
 .palette-label {

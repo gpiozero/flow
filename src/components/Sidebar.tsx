@@ -1,19 +1,72 @@
 import { useState } from 'react';
 import type { DragEvent } from 'react';
 import { SECTIONS, SPECS } from '../catalog';
+import { BOARD_LIST } from '../boards';
 import type { NodeKind } from '../types';
 
 export const DRAG_MIME = 'application/gpiozero-node';
+export const BOARD_MIME = 'application/gpiozero-board';
 
 const DEFAULT_VISIBLE_COUNT = 2;
+
+/** A draggable palette row: a catalog device or an add-on board */
+interface PaletteEntry {
+  key: string;
+  label: string;
+  description: string;
+  mime: string;
+  payload: string;
+}
+
+interface PaletteSectionDef {
+  id: string;
+  title: string;
+  entries: PaletteEntry[];
+}
+
+/** The Boards drawer slots in after this section */
+const BOARDS_AFTER = 'outputs';
+
+function buildSections(): PaletteSectionDef[] {
+  const sections: PaletteSectionDef[] = [];
+  for (const section of SECTIONS) {
+    sections.push({
+      id: section.id,
+      title: section.title,
+      entries: section.kinds.map((kind: NodeKind) => ({
+        key: kind,
+        label: SPECS[kind].label,
+        description: SPECS[kind].description,
+        mime: DRAG_MIME,
+        payload: kind,
+      })),
+    });
+    if (section.id === BOARDS_AFTER) {
+      sections.push({
+        id: 'boards',
+        title: 'Boards',
+        entries: BOARD_LIST.map((board) => ({
+          key: board.id,
+          label: board.label,
+          description: board.description,
+          mime: BOARD_MIME,
+          payload: board.id,
+        })),
+      });
+    }
+  }
+  return sections;
+}
+
+const ALL_SECTIONS = buildSections();
 
 export function Sidebar() {
   const [query, setQuery] = useState('');
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
 
-  const onDragStart = (e: DragEvent<HTMLDivElement>, kind: NodeKind) => {
-    e.dataTransfer.setData(DRAG_MIME, kind);
+  const onDragStart = (e: DragEvent<HTMLDivElement>, entry: PaletteEntry) => {
+    e.dataTransfer.setData(entry.mime, entry.payload);
     e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -36,15 +89,17 @@ export function Sidebar() {
   };
 
   const needle = query.trim().toLowerCase();
-  const matches = (kind: NodeKind) => {
+  const matches = (entry: PaletteEntry) => {
     if (!needle) return true;
-    const spec = SPECS[kind];
-    return spec.label.toLowerCase().includes(needle) || spec.description.toLowerCase().includes(needle);
+    return (
+      entry.label.toLowerCase().includes(needle) ||
+      entry.description.toLowerCase().includes(needle)
+    );
   };
-  const visibleSections = SECTIONS.map((section) => ({
+  const visibleSections = ALL_SECTIONS.map((section) => ({
     ...section,
-    kinds: section.kinds.filter(matches),
-  })).filter((section) => section.kinds.length > 0);
+    entries: section.entries.filter(matches),
+  })).filter((section) => section.entries.length > 0);
 
   return (
     <aside className="sidebar">
@@ -65,8 +120,10 @@ export function Sidebar() {
         const isSearching = needle.length > 0;
         const isCollapsed = !isSearching && collapsedSections.has(section.id);
         const isExpanded = isSearching || expandedSections.has(section.id);
-        const shownKinds = isExpanded ? section.kinds : section.kinds.slice(0, DEFAULT_VISIBLE_COUNT);
-        const hasMore = section.kinds.length > DEFAULT_VISIBLE_COUNT;
+        const shownEntries = isExpanded
+          ? section.entries
+          : section.entries.slice(0, DEFAULT_VISIBLE_COUNT);
+        const hasMore = section.entries.length > DEFAULT_VISIBLE_COUNT;
 
         return (
           <section key={section.id} className="palette-section">
@@ -81,23 +138,20 @@ export function Sidebar() {
             </h2>
             {!isCollapsed && (
               <>
-                {shownKinds.map((kind) => {
-                  const spec = SPECS[kind];
-                  return (
-                    <div
-                      key={kind}
-                      className={`palette-item section-${section.id}`}
-                      draggable
-                      onDragStart={(e) => onDragStart(e, kind)}
-                    >
-                      <span className="palette-label">{spec.label}</span>
-                      <span className="palette-desc">{spec.description}</span>
-                    </div>
-                  );
-                })}
+                {shownEntries.map((entry) => (
+                  <div
+                    key={entry.key}
+                    className={`palette-item section-${section.id}`}
+                    draggable
+                    onDragStart={(e) => onDragStart(e, entry)}
+                  >
+                    <span className="palette-label">{entry.label}</span>
+                    <span className="palette-desc">{entry.description}</span>
+                  </div>
+                ))}
                 {!isSearching && hasMore && (
                   <button type="button" className="palette-section-toggle" onClick={() => toggleExpanded(section.id)}>
-                    {isExpanded ? 'Show less' : `Show all (${section.kinds.length})`}
+                    {isExpanded ? 'Show less' : `Show all (${section.entries.length})`}
                   </button>
                 )}
               </>
