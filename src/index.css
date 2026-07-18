@@ -117,8 +117,8 @@ body {
   background: #2f9e44;
 }
 
-.pi-address {
-  width: 170px;
+.pi-address,
+.pi-port {
   padding: 6px 8px;
   border: 1px solid var(--c-border);
   border-radius: 6px;
@@ -126,7 +126,75 @@ body {
   font-size: 12px;
 }
 
-.pi-address:disabled {
+.pi-combo {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.pi-address {
+  width: 150px;
+  border-radius: 6px 0 0 6px;
+}
+
+.pi-combo-toggle {
+  padding: 0 5px;
+  border: 1px solid var(--c-border);
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+  background: var(--c-panel);
+  color: var(--c-muted);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.pi-combo-toggle:disabled {
+  cursor: default;
+}
+
+.pi-combo-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: #fff;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(31, 35, 40, 0.12);
+  z-index: 40;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.pi-combo-menu li {
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pi-combo-menu li.active {
+  background: var(--c-panel);
+}
+
+.pi-port {
+  width: 48px;
+  color: var(--c-muted);
+}
+
+.pi-port-sep {
+  margin: 0 -5px;
+  color: var(--c-muted);
+}
+
+.pi-address:disabled,
+.pi-port:disabled {
   color: var(--c-muted);
   background: var(--c-panel);
 }

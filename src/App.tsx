@@ -16,11 +16,12 @@ import type {
   IsValidConnection,
   OnSelectionChangeParams,
 } from '@xyflow/react';
-import type { DragEvent } from 'react';
+import type { DragEvent, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import '@xyflow/react/dist/style.css';
 
 import { ConfigPanel } from './components/ConfigPanel';
 import { DeviceNode } from './components/DeviceNode';
+import { HostCombo } from './components/HostCombo';
 import { ScriptModal } from './components/ScriptModal';
 import { DRAG_MIME, Sidebar } from './components/Sidebar';
 import { WireEdge } from './components/WireEdge';
@@ -52,6 +53,8 @@ import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
 
 const nodeTypes = { device: DeviceNode };
 const edgeTypes = { wire: WireEdge };
+
+const STANDING_HOSTS = ['raspberrypi.local', 'localhost'];
 
 function namesInUse(nodes: DeviceFlowNode[]): Set<string> {
   const names = new Set<string>();
@@ -146,6 +149,10 @@ function Editor() {
   }, [nodes, edges, tick]);
 
   const pi = usePiLink(nodes, edges, showWarning);
+
+  const connectOnEnter = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && pi.status === 'disconnected') pi.connect();
+  };
 
   // While connected to a Pi, device nodes show real hardware values
   // (tools keep their simulated values — they're anonymous generators
@@ -511,14 +518,29 @@ function Editor() {
           </div>
           <div className="topbar-pi">
             <span className={`pi-dot pi-dot-${pi.status}`} aria-hidden="true" />
-            <input
-              className="pi-address"
-              value={pi.address}
-              onChange={(e) => pi.setAddress(e.target.value)}
+            <HostCombo
+              value={pi.host}
+              onChange={pi.setHost}
+              suggestions={[
+                ...pi.history,
+                ...STANDING_HOSTS.filter((h) => !pi.history.includes(h)),
+              ]}
               disabled={pi.status !== 'disconnected'}
-              placeholder="pi-host:8765"
-              title="Pi agent WebSocket address"
-              aria-label="Pi agent address"
+              onConnect={pi.connect}
+            />
+            <span className="pi-port-sep" aria-hidden="true">
+              :
+            </span>
+            <input
+              className="pi-port"
+              value={pi.port}
+              onChange={(e) => pi.setPort(e.target.value)}
+              onKeyDown={connectOnEnter}
+              disabled={pi.status !== 'disconnected'}
+              placeholder="8765"
+              inputMode="numeric"
+              title="Pi agent port"
+              aria-label="Pi agent port"
             />
             {pi.status === 'disconnected' ? (
               <button className="topbar-script" onClick={pi.connect}>
