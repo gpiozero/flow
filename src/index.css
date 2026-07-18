@@ -1701,6 +1701,58 @@ body {
   font-size: 11px;
 }
 
+.config-inputs {
+  margin-top: 4px;
+  font-size: 13px;
+  font-family: ui-monospace, 'Cascadia Mono', monospace;
+}
+
+.config-inputs-title {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.config-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.config-input-index {
+  width: 14px;
+  color: var(--c-muted);
+  text-align: right;
+}
+
+.config-input-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.config-input-row button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--c-border);
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.config-input-row button:hover:not(:disabled) {
+  background: var(--c-panel);
+}
+
+.config-input-row button:disabled {
+  color: var(--c-border);
+  cursor: default;
+}
+
 .config-duplicate {
   margin-top: 12px;
   width: 100%;

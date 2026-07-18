@@ -25,6 +25,10 @@ interface Props {
   onSplit: (id: string) => void;
   /** switch this node to its related kind (LED <-> PWMLED) in place */
   onConvert: (id: string) => void;
+  /** the node's incoming wires in channel order: edge id + source label */
+  inputs: { id: string; label: string }[];
+  /** swap an incoming wire with its neighbour above (-1) or below (1) */
+  onMoveInput: (edgeId: string, delta: -1 | 1) => void;
 }
 
 export function ConfigPanel({
@@ -38,6 +42,8 @@ export function ConfigPanel({
   onDuplicate,
   onSplit,
   onConvert,
+  inputs,
+  onMoveInput,
 }: Props) {
   const { deleteElements } = useReactFlow();
 
@@ -163,6 +169,35 @@ export function ConfigPanel({
             {renderPinSelect(name)}
           </label>
         ))}
+      {spec.multiInput && inputs.length > 0 && (
+        <div className="config-inputs">
+          <span className="config-inputs-title">
+            inputs{node.data.kind === 'zip_values' ? ' (channel order)' : ''}
+          </span>
+          {inputs.map((input, i) => (
+            <div key={input.id} className="config-input-row">
+              <span className="config-input-index">{i + 1}</span>
+              <span className="config-input-label">{input.label}</span>
+              <button
+                type="button"
+                disabled={i === 0}
+                onClick={() => onMoveInput(input.id, -1)}
+                aria-label={`Move ${input.label} up`}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                disabled={i === inputs.length - 1}
+                onClick={() => onMoveInput(input.id, 1)}
+                aria-label={`Move ${input.label} down`}
+              >
+                ↓
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="config-code">
         <code>{preview(node, numbering)}</code>
       </div>

@@ -599,6 +599,47 @@ function Editor() {
     [nodes, selectedId],
   );
 
+  // The selected node's incoming wires in channel order (= edge array
+  // order, which simulation, codegen and the agent all follow), for
+  // the config panel's reorderable inputs list.
+  const selectedInputs = useMemo(() => {
+    if (!selectedNode) return [];
+    return edges
+      .filter((e) => e.target === selectedNode.id)
+      .map((e) => {
+        const src = nodes.find((n) => n.id === e.source);
+        return {
+          id: e.id,
+          label: src ? String(src.data.name ?? SPECS[src.data.kind].label) : '?',
+        };
+      });
+  }, [edges, nodes, selectedNode]);
+
+  // Move one incoming wire up or down among its siblings by swapping
+  // the two edges' positions in the global array — their relative
+  // order is the only thing simulation/codegen/agent read.
+  const moveInput = useCallback(
+    (edgeId: string, delta: -1 | 1) => {
+      setEdges((es) => {
+        const edge = es.find((e) => e.id === edgeId);
+        if (!edge) return es;
+        const siblings = es
+          .map((e, index) => ({ e, index }))
+          .filter((x) => x.e.target === edge.target);
+        const pos = siblings.findIndex((x) => x.e.id === edgeId);
+        const other = pos + delta;
+        if (other < 0 || other >= siblings.length) return es;
+        const next = [...es];
+        [next[siblings[pos].index], next[siblings[other].index]] = [
+          next[siblings[other].index],
+          next[siblings[pos].index],
+        ];
+        return next;
+      });
+    },
+    [setEdges],
+  );
+
   // Pins and names used by every node except the selected one, so the
   // config panel can offer only free pins and reject duplicate names.
   const takenPins = useMemo(
@@ -760,11 +801,13 @@ function Editor() {
             takenNames={takenNames}
             takenChannels={takenChannels}
             numbering={numbering}
+            inputs={selectedInputs}
             onChangeParam={updateNodeParam}
             onChangeName={updateNodeName}
             onDuplicate={duplicateNode}
             onSplit={splitNode}
             onConvert={convertNode}
+            onMoveInput={moveInput}
           />
         </div>
       </div>
