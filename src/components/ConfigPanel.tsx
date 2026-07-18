@@ -3,6 +3,8 @@ import { useReactFlow } from '@xyflow/react';
 import { NAME_PATTERN, SPECS, requiredPinParams } from '../catalog';
 import { deviceConstructor, toolCall } from '../codegen';
 import { pinDisplay, pinOptions } from '../pins';
+import { splitLabel } from '../split';
+import { convertTarget } from '../convert';
 import type { PinNumbering } from '../pins';
 import type { DeviceFlowNode, ParamValue } from '../types';
 
@@ -19,6 +21,10 @@ interface Props {
   onChangeName: (id: string, name: string) => void;
   /** copy this node: same params/state, fresh pins and name */
   onDuplicate: (id: string) => void;
+  /** replace this node with its constituent devices on the same pins */
+  onSplit: (id: string) => void;
+  /** switch this node to its related kind (LED <-> PWMLED) in place */
+  onConvert: (id: string) => void;
 }
 
 export function ConfigPanel({
@@ -30,6 +36,8 @@ export function ConfigPanel({
   onChangeParam,
   onChangeName,
   onDuplicate,
+  onSplit,
+  onConvert,
 }: Props) {
   const { deleteElements } = useReactFlow();
 
@@ -161,6 +169,16 @@ export function ConfigPanel({
       <button className="config-duplicate" onClick={() => onDuplicate(node.id)}>
         Duplicate node
       </button>
+      {splitLabel(node.data) && (
+        <button className="config-duplicate" onClick={() => onSplit(node.id)}>
+          Split into {splitLabel(node.data)}
+        </button>
+      )}
+      {convertTarget(node.data.kind) && (
+        <button className="config-duplicate" onClick={() => onConvert(node.id)}>
+          Convert to {SPECS[convertTarget(node.data.kind)!].label}
+        </button>
+      )}
       <button
         className="config-delete"
         onClick={() => deleteElements({ nodes: [{ id: node.id }] })}

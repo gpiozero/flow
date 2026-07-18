@@ -51,6 +51,8 @@ import { BOARDS } from './boards';
 import type { BoardSpec } from './boards';
 import { pinDisplay } from './pins';
 import type { PinNumbering } from './pins';
+import { splitParts } from './split';
+import { convertParams, convertTarget } from './convert';
 import { FlowContext } from './store';
 import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
 
@@ -473,6 +475,68 @@ function Editor() {
     [nodes, materialiseNode],
   );
 
+  // Convert a node to its related kind (LED <-> PWMLED) in place: same
+  // id, so its name, position and wires survive.
+  const convertNode = useCallback(
+    (id: string) => {
+      setNodes((ns) =>
+        ns.map((n) => {
+          if (n.id !== id) return n;
+          const target = convertTarget(n.data.kind);
+          if (!target) return n;
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              kind: target,
+              params: convertParams(n.data, target),
+              state: defaultState(target),
+            },
+          };
+        }),
+      );
+    },
+    [setNodes],
+  );
+
+  // Split a multi-device component into its constituent devices on the
+  // same pins (TrafficLights -> 3 LEDs). The parent is replaced, so the
+  // pins never conflict; its wires can't be meaningfully remapped onto
+  // scalar parts, so they're removed (with a note if there were any).
+  const splitNode = useCallback(
+    (id: string) => {
+      const node = nodes.find((n) => n.id === id);
+      const parts = node && splitParts(node.data);
+      if (!node || !parts) return;
+      const usedNames = namesInUse(nodes.filter((n) => n.id !== id));
+      const created: DeviceFlowNode[] = parts.map((part, i) => {
+        const name = nextDeviceName(`${node.data.name}_${part.suffix}`, usedNames);
+        usedNames.add(name);
+        return {
+          id: `${part.kind}-${idCounter.current++}`,
+          type: 'device',
+          position: {
+            x: node.position.x + Math.floor(i / 5) * 230,
+            y: node.position.y + (i % 5) * 130,
+          },
+          data: {
+            kind: part.kind,
+            name,
+            params: { ...defaultParams(part.kind), ...part.params },
+            state: defaultState(part.kind),
+          },
+        };
+      });
+      if (edges.some((e) => e.source === id || e.target === id)) {
+        showWarning(`Wires to ${node.data.name} were removed`);
+      }
+      setNodes((ns) => [...ns.filter((n) => n.id !== id), ...created]);
+      setEdges((es) => es.filter((e) => e.source !== id && e.target !== id));
+      setSelectedId(null);
+    },
+    [nodes, edges, setNodes, setEdges, showWarning],
+  );
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.altKey || scriptOpen) return;
@@ -668,6 +732,8 @@ function Editor() {
             onChangeParam={updateNodeParam}
             onChangeName={updateNodeName}
             onDuplicate={duplicateNode}
+            onSplit={splitNode}
+            onConvert={convertNode}
           />
         </div>
       </div>
