@@ -20,6 +20,7 @@ import type { DragEvent, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import '@xyflow/react/dist/style.css';
 
 import { ConfigPanel } from './components/ConfigPanel';
+import { Pinout } from './components/Pinout';
 import { DeviceNode } from './components/DeviceNode';
 import { HostCombo } from './components/HostCombo';
 import { ScriptModal } from './components/ScriptModal';
@@ -97,6 +98,7 @@ function Editor() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [scriptOpen, setScriptOpen] = useState(false);
+  const [pinoutOpen, setPinoutOpen] = useState(false);
   // Pins are stored as BCM ints throughout (params, pin assignment,
   // the Pi wire format); the numbering only changes how they're shown
   // and how generated code spells them (17 vs 'BOARD11').
@@ -554,6 +556,15 @@ function Editor() {
     setSelectedId(selected.length === 1 ? selected[0].id : null);
   }, []);
 
+  // Select a node from outside React Flow (e.g. clicking a pinout pin)
+  const selectNode = useCallback(
+    (id: string) => {
+      setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === id })));
+      setSelectedId(id);
+    },
+    [setNodes],
+  );
+
   // Nothing is persisted, so clearing loses the whole canvas: confirm.
   const clearCanvas = useCallback(() => {
     if (!window.confirm('Clear the canvas? All nodes and wires will be removed.')) return;
@@ -678,6 +689,12 @@ function Editor() {
           >
             Clear
           </button>
+          <button
+            className={`topbar-script ${pinoutOpen ? 'active' : ''}`}
+            onClick={() => setPinoutOpen((open) => !open)}
+          >
+            Pinout
+          </button>
           <button className="topbar-script" onClick={() => setScriptOpen(true)}>
             View Python script
           </button>
@@ -722,6 +739,14 @@ function Editor() {
               <Controls />
               <MiniMap />
             </ReactFlow>
+            {pinoutOpen && (
+              <Pinout
+                nodes={nodes}
+                numbering={numbering}
+                onSelectNode={selectNode}
+                onClose={() => setPinoutOpen(false)}
+              />
+            )}
           </div>
           <ConfigPanel
             node={selectedNode}

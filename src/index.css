@@ -69,6 +69,139 @@ body {
   background: var(--c-panel);
 }
 
+.topbar-script.active {
+  background: var(--c-text);
+  border-color: var(--c-text);
+  color: #fff;
+}
+
+/* Pinout overlay: the physical header, two columns of 20 */
+.pinout-panel {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(31, 35, 40, 0.12);
+  padding: 8px 10px 10px;
+}
+
+.pinout-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.pinout-close {
+  border: none;
+  background: none;
+  font-size: 14px;
+  color: var(--c-muted);
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.pinout-row {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.pinout-pin {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: none;
+  padding: 1px 0;
+  font-family: inherit;
+  font-size: 10px;
+  color: var(--c-muted);
+}
+
+.pinout-pin:not(:disabled) {
+  cursor: pointer;
+}
+
+.pinout-left {
+  flex-direction: row;
+  justify-content: flex-end;
+}
+
+.pinout-right {
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
+
+.pinout-label {
+  width: 88px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pinout-left .pinout-label {
+  text-align: right;
+}
+
+.pinout-right .pinout-label {
+  text-align: left;
+}
+
+.pinout-circle {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--c-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  color: var(--c-muted);
+  flex-shrink: 0;
+  background: #fff;
+}
+
+.pinout-v33 .pinout-circle {
+  border-color: #e8590c;
+  color: #e8590c;
+}
+
+.pinout-5v .pinout-circle {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.pinout-gnd .pinout-circle {
+  border-color: #6b7280;
+  background: #6b7280;
+  color: #fff;
+}
+
+.pinout-gpio .pinout-circle {
+  border-color: #2f9e44;
+  color: #2f9e44;
+}
+
+.pinout-used {
+  color: var(--c-text);
+  font-weight: 600;
+}
+
+.pinout-used .pinout-circle {
+  background: #2f9e44;
+  color: #fff;
+}
+
+.pinout-used:hover .pinout-label {
+  text-decoration: underline;
+}
+
 .numbering-toggle {
   display: flex;
   margin-left: auto;
