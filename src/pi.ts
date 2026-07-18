@@ -7,13 +7,18 @@ export type PiStatus = 'disconnected' | 'connecting' | 'connected';
 
 const STORAGE_KEY = 'gpio-webapp.pi-address';
 const DEFAULT_HOST = 'raspberrypi.local';
-const DEFAULT_PORT = '8765';
+export const DEFAULT_PORT = '8765';
 const HISTORY_MAX = 6;
+
+export interface HistoryEntry {
+  host: string;
+  port: string;
+}
 
 interface StoredLink {
   host: string;
   port: string;
-  history: string[];
+  history: HistoryEntry[];
 }
 
 function loadStored(): StoredLink {
@@ -22,11 +27,19 @@ function loadStored(): StoredLink {
   try {
     const parsed = JSON.parse(raw) as Partial<StoredLink>;
     if (typeof parsed === 'object' && parsed !== null) {
+      const port = typeof parsed.port === 'string' ? parsed.port : DEFAULT_PORT;
       return {
         host: typeof parsed.host === 'string' ? parsed.host : DEFAULT_HOST,
-        port: typeof parsed.port === 'string' ? parsed.port : DEFAULT_PORT,
+        port,
         history: Array.isArray(parsed.history)
-          ? parsed.history.filter((h): h is string => typeof h === 'string')
+          ? parsed.history.flatMap((h): HistoryEntry[] => {
+              // pre-pair format: bare host strings; the stored port is
+              // the best guess for what they connected with
+              if (typeof h === 'string') return [{ host: h, port }];
+              if (h && typeof h.host === 'string' && typeof h.port === 'string')
+                return [{ host: h.host, port: h.port }];
+              return [];
+            })
           : [],
       };
     }
@@ -54,8 +67,10 @@ interface AgentMessage {
  * agent's 10Hz stream of real device values is collected for display.
  *
  * The host and port are persisted, along with a most-recent-first
- * history of hosts that have successfully connected (for the address
- * dropdown). A host containing "://" is used as the URL verbatim.
+ * history of host:port pairs that have successfully connected (for the
+ * address dropdown — the same host on two ports is two entries, so
+ * switching agents restores the right port). A host containing "://"
+ * is used as the URL verbatim.
  */
 export function usePiLink(
   nodes: DeviceFlowNode[],
@@ -85,9 +100,8 @@ export function usePiLink(
   const connect = useCallback(() => {
     if (wsRef.current) return;
     const host = link.host.trim();
-    const url = host.includes('://')
-      ? host
-      : `ws://${host}:${link.port.trim() || DEFAULT_PORT}`;
+    const port = link.port.trim() || DEFAULT_PORT;
+    const url = host.includes('://') ? host : `ws://${host}:${port}`;
     let ws: WebSocket;
     try {
       ws = new WebSocket(url);
@@ -105,10 +119,10 @@ export function usePiLink(
       setStatus('connected');
       setLink((prev) => ({
         ...prev,
-        history: [host, ...prev.history.filter((h) => h !== host)].slice(
-          0,
-          HISTORY_MAX,
-        ),
+        history: [
+          { host, port },
+          ...prev.history.filter((h) => h.host !== host || h.port !== port),
+        ].slice(0, HISTORY_MAX),
       }));
     };
     ws.onmessage = (event) => {

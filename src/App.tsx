@@ -47,7 +47,7 @@ import {
   createSimState,
   resetNodeState,
 } from './simulation';
-import { usePiLink } from './pi';
+import { DEFAULT_PORT, usePiLink } from './pi';
 import { BOARDS } from './boards';
 import type { BoardSpec } from './boards';
 import { pinDisplay } from './pins';
@@ -651,9 +651,15 @@ function Editor() {
             <HostCombo
               value={pi.host}
               onChange={pi.setHost}
+              onPick={(s) => {
+                pi.setHost(s.host);
+                if (s.port !== undefined) pi.setPort(s.port);
+              }}
               suggestions={[
                 ...pi.history,
-                ...STANDING_HOSTS.filter((h) => !pi.history.includes(h)),
+                ...STANDING_HOSTS.filter(
+                  (h) => !pi.history.some((e) => e.host === h),
+                ).map((host) => ({ host, port: DEFAULT_PORT })),
               ]}
               disabled={pi.status !== 'disconnected'}
               onConnect={pi.connect}

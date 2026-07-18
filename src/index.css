@@ -317,6 +317,10 @@ body {
   background: var(--c-panel);
 }
 
+.pi-combo-port {
+  color: var(--c-muted);
+}
+
 .pi-port {
   width: 48px;
   color: var(--c-muted);

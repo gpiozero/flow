@@ -1,11 +1,19 @@
 import { useRef, useState } from 'react';
 import type { FocusEvent, KeyboardEvent } from 'react';
 
+export interface HostSuggestion {
+  host: string;
+  /** the port to restore alongside the host: what a history entry
+   * connected with, or the agent default for standing suggestions */
+  port?: string;
+}
+
 interface HostComboProps {
   value: string;
-  suggestions: string[];
+  suggestions: HostSuggestion[];
   disabled: boolean;
   onChange: (value: string) => void;
+  onPick: (suggestion: HostSuggestion) => void;
   onConnect: () => void;
 }
 
@@ -21,6 +29,7 @@ export function HostCombo({
   suggestions,
   disabled,
   onChange,
+  onPick,
   onConnect,
 }: HostComboProps) {
   const [open, setOpen] = useState(false);
@@ -32,8 +41,8 @@ export function HostCombo({
     setActive(-1);
   };
 
-  const choose = (host: string) => {
-    onChange(host);
+  const choose = (suggestion: HostSuggestion) => {
+    onPick(suggestion);
     close();
     inputRef.current?.focus();
   };
@@ -119,17 +128,18 @@ export function HostCombo({
       </button>
       {open && suggestions.length > 0 && (
         <ul className="pi-combo-menu" role="listbox">
-          {suggestions.map((h, i) => (
+          {suggestions.map((s, i) => (
             <li
-              key={h}
+              key={`${s.host}:${s.port ?? ''}`}
               role="option"
               aria-selected={i === active}
               className={i === active ? 'active' : ''}
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => choose(h)}
+              onClick={() => choose(s)}
               onMouseEnter={() => setActive(i)}
             >
-              {h}
+              {s.host}
+              {s.port !== undefined && <span className="pi-combo-port"> :{s.port}</span>}
             </li>
           ))}
         </ul>
