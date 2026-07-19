@@ -45,6 +45,9 @@ The better path is to add the missing tools to gpiozero itself
   Complements `zip_values`, which combines n sources into tuples.
 - Possibly a general `tee`-style splitter if generator sharing across
   multiple sinks ever becomes a first-class need.
+- A `cond`-style boolean gate (truthy → on_value, else off_value,
+  where off_value may be None) so a Button can gate a TonalBuzzer or
+  Servo — see [tonal-buzzer-gating.md](tonal-buzzer-gating.md).
 
 Once such tools exist upstream, the webapp integration is mechanical:
 catalog spec + one simulation case; codegen and the agent already
