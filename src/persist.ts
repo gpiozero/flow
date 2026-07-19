@@ -170,14 +170,17 @@ export function renameCanvas(from: string, to: string): void {
 
 /**
  * Move a canvas to the trash (see TRASH_TTL_MS); current falls back to
- * the first remaining name.
+ * the first remaining name. An empty canvas has nothing worth
+ * recovering, so it's dropped outright instead of trashed.
  */
 export function deleteCanvas(name: string): void {
   const store = readStore();
   const canvas = store.canvases[name];
   if (!canvas) return;
   delete store.canvases[name];
-  store.trash[name] = { canvas, deletedAt: Date.now() };
+  if (canvas.nodes.length > 0) {
+    store.trash[name] = { canvas, deletedAt: Date.now() };
+  }
   if (store.current === name) {
     store.current = Object.keys(store.canvases)[0] ?? DEFAULT_CANVAS;
   }
