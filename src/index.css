@@ -53,6 +53,47 @@ body {
   color: var(--c-muted);
 }
 
+.canvas-picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.canvas-name {
+  width: 150px;
+  padding: 5px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 6px 0 0 6px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.canvas-current {
+  color: var(--c-muted);
+}
+
+.canvas-picker button {
+  padding: 5px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--c-muted);
+  cursor: pointer;
+}
+
+.canvas-picker button:hover:not(:disabled) {
+  background: var(--c-panel);
+  color: var(--c-text);
+}
+
+.canvas-picker button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .topbar-script,
 .topbar-clear {
   padding: 6px 12px;
@@ -260,7 +301,7 @@ body {
   font-size: 12px;
 }
 
-.pi-combo {
+.combo {
   position: relative;
   display: flex;
   align-items: stretch;
@@ -271,7 +312,7 @@ body {
   border-radius: 6px 0 0 6px;
 }
 
-.pi-combo-toggle {
+.combo-toggle {
   padding: 0 5px;
   border: 1px solid var(--c-border);
   border-left: none;
@@ -282,11 +323,11 @@ body {
   cursor: pointer;
 }
 
-.pi-combo-toggle:disabled {
+.combo-toggle:disabled {
   cursor: default;
 }
 
-.pi-combo-menu {
+.combo-menu {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
@@ -303,7 +344,7 @@ body {
   overflow-y: auto;
 }
 
-.pi-combo-menu li {
+.combo-menu li {
   padding: 6px 8px;
   border-radius: 4px;
   font-size: 12px;
@@ -313,7 +354,7 @@ body {
   text-overflow: ellipsis;
 }
 
-.pi-combo-menu li.active {
+.combo-menu li.active {
   background: var(--c-panel);
 }
 

@@ -87,7 +87,7 @@ export function HostCombo({
 
   return (
     <div
-      className="pi-combo"
+      className="combo"
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) close();
       }}
@@ -111,7 +111,7 @@ export function HostCombo({
       />
       <button
         type="button"
-        className="pi-combo-toggle"
+        className="combo-toggle"
         disabled={disabled}
         onMouseDown={(e) => e.preventDefault() /* keep the input's focus */}
         onClick={() => {
@@ -127,7 +127,7 @@ export function HostCombo({
         ▾
       </button>
       {open && suggestions.length > 0 && (
-        <ul className="pi-combo-menu" role="listbox">
+        <ul className="combo-menu" role="listbox">
           {suggestions.map((s, i) => (
             <li
               key={`${s.host}:${s.port ?? ''}`}

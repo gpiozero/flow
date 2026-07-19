@@ -53,7 +53,18 @@ import type { BoardSpec } from './boards';
 import { pinDisplay } from './pins';
 import type { PinNumbering } from './pins';
 import { splitParts } from './split';
-import { loadCanvas, nextIdCounter, saveCanvas } from './persist';
+import {
+  currentCanvasName,
+  deleteCanvas,
+  listCanvases,
+  loadCanvas,
+  nextIdCounter,
+  renameCanvas,
+  saveCanvas,
+  setCurrentCanvas,
+  untitledCanvasName,
+} from './persist';
+import { CanvasPicker } from './components/CanvasPicker';
 import { convertParams, convertTarget } from './convert';
 import { FlowContext } from './store';
 import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
@@ -95,8 +106,11 @@ function pinsInUse(nodes: DeviceFlowNode[]): Set<number> {
 }
 
 function Editor() {
-  // the canvas survives reloads: restored once here, saved on change below
-  const [initialCanvas] = useState(loadCanvas);
+  // the current canvas survives reloads: restored once here, saved on
+  // change below; the topbar picker switches between named canvases
+  const [canvasName, setCanvasName] = useState(currentCanvasName);
+  const [canvasList, setCanvasList] = useState(listCanvases);
+  const [initialCanvas] = useState(() => loadCanvas(canvasName));
   const [nodes, setNodes, onNodesChange] = useNodesState<DeviceFlowNode>(initialCanvas.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialCanvas.edges);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -128,9 +142,9 @@ function Editor() {
   const idCounter = useRef(nextIdCounter(initialCanvas.nodes));
 
   useEffect(() => {
-    const timer = setTimeout(() => saveCanvas(nodes, edges), 300);
+    const timer = setTimeout(() => saveCanvas(canvasName, nodes, edges), 300);
     return () => clearTimeout(timer);
-  }, [nodes, edges]);
+  }, [canvasName, nodes, edges]);
 
   // The simulation clock runs at 10 steps/s whenever a time-based node
   // is on the canvas, or a device's source_delay is long enough that
@@ -581,6 +595,71 @@ function Editor() {
     setSelectedId(null);
   }, [setNodes, setEdges]);
 
+  // Make a stored canvas the one on screen: fresh simulation state and
+  // id counter, nothing selected, and it becomes the current canvas.
+  const applyCanvas = useCallback(
+    (name: string) => {
+      const loaded = loadCanvas(name);
+      simRef.current = createSimState();
+      idCounter.current = nextIdCounter(loaded.nodes);
+      setNodes(loaded.nodes);
+      setEdges(loaded.edges);
+      setSelectedId(null);
+      setCanvasName(name);
+      setCurrentCanvas(name);
+      setCanvasList(listCanvases());
+    },
+    [setNodes, setEdges],
+  );
+
+  // Switching saves the outgoing canvas first, so the debounced
+  // autosave being cancelled can't lose its last edits.
+  const switchCanvas = useCallback(
+    (name: string) => {
+      if (name === canvasName) return;
+      saveCanvas(canvasName, nodes, edges);
+      applyCanvas(name);
+    },
+    [canvasName, nodes, edges, applyCanvas],
+  );
+
+  // A new canvas starts as "untitled canvas" (numbered if taken); the
+  // picker selects the name so typing immediately renames it.
+  const newCanvas = useCallback(() => {
+    const name = untitledCanvasName(listCanvases());
+    saveCanvas(canvasName, nodes, edges);
+    saveCanvas(name, [], []);
+    applyCanvas(name);
+  }, [canvasName, nodes, edges, applyCanvas]);
+
+  // Rename the current canvas to whatever was typed in the picker;
+  // refused (with a toast) only when the name is already taken.
+  const renameCurrentCanvas = useCallback(
+    (name: string): boolean => {
+      if (listCanvases().includes(name)) {
+        showWarning(`A canvas named "${name}" already exists`);
+        return false;
+      }
+      saveCanvas(canvasName, nodes, edges);
+      renameCanvas(canvasName, name);
+      setCanvasName(name);
+      setCanvasList(listCanvases());
+      return true;
+    },
+    [canvasName, nodes, edges, showWarning],
+  );
+
+  const deleteCurrentCanvas = useCallback(() => {
+    if (
+      !window.confirm(
+        `Delete canvas "${canvasName}"? Its nodes and wires will be lost.`,
+      )
+    )
+      return;
+    deleteCanvas(canvasName);
+    applyCanvas(currentCanvasName());
+  }, [canvasName, applyCanvas]);
+
   const onEdgeDoubleClick = useCallback(
     (_: unknown, edge: Edge) => {
       setEdges((eds) => eds.filter((e) => e.id !== edge.id));
@@ -674,6 +753,15 @@ function Editor() {
       <div className="app">
         <header className="topbar">
           <h1>gpiozero flow</h1>
+          <CanvasPicker
+            name={canvasName}
+            canvases={canvasList}
+            onSwitch={switchCanvas}
+            onRename={renameCurrentCanvas}
+            onNew={newCanvas}
+            onDelete={deleteCurrentCanvas}
+            deleteDisabled={canvasList.length < 2 && nodes.length === 0}
+          />
           <span className="topbar-note">
             {pi.status === 'connected'
               ? 'Live — devices running on the Pi'
