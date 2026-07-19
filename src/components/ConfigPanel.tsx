@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { NAME_PATTERN, SPECS, requiredPinParams } from '../catalog';
+import { NAME_PATTERN, SPECS, requiredPinParams, valueSummary } from '../catalog';
 import { deviceConstructor, toolCall } from '../codegen';
 import { pinDisplay, pinOptions } from '../pins';
 import { splitLabel } from '../split';
@@ -169,6 +169,7 @@ export function ConfigPanel({
             {renderPinSelect(name)}
           </label>
         ))}
+      <ValueBlock node={node} />
       {spec.multiInput && inputs.length > 0 && (
         <div className="config-inputs">
           <span className="config-inputs-title">
@@ -221,6 +222,27 @@ export function ConfigPanel({
         Delete node
       </button>
     </aside>
+  );
+}
+
+// What the device's value looks like: tuple shape and channel names,
+// per-channel range, and what the numbers mean. Devices only —
+// valueSummary is null for tools and artificial sources.
+function ValueBlock({ node }: { node: DeviceFlowNode }) {
+  const summary = valueSummary(node.data.kind, node.data.params);
+  if (!summary) return null;
+  const channels =
+    summary.channels &&
+    (summary.channels.length <= 4
+      ? summary.channels.join(', ')
+      : `${summary.channels[0]}, …, ${summary.channels[summary.channels.length - 1]}`);
+  return (
+    <div className="config-value">
+      <span className="config-value-title">value</span>
+      <code>{channels ? `(${channels}) · each ${summary.range}` : summary.range}</code>
+      <p>{summary.meaning}</p>
+      {summary.note && <p className="config-value-note">{summary.note}</p>}
+    </div>
   );
 }
 

@@ -1680,6 +1680,35 @@ body {
   background: #fff;
 }
 
+.config-value {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.config-value-title {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--c-muted);
+  font-family: ui-monospace, 'Cascadia Mono', monospace;
+}
+
+.config-value code {
+  font-family: ui-monospace, 'Cascadia Mono', monospace;
+  font-size: 12px;
+}
+
+.config-value p {
+  margin: 4px 0 0;
+  color: var(--c-muted);
+}
+
+.config-value-note {
+  font-style: italic;
+}
+
 .config-code {
   background: #1f2328;
   color: #e6edf3;

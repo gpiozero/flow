@@ -757,6 +757,155 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
   },
 };
 
+/**
+ * Human summary of a device's value, for the config panel: the range
+ * each channel moves in, what the number means, and any special
+ * values. Param-dependent (signed ADCs, pwm toggles, channel counts),
+ * so it takes the node's params. Tools and artificial sources return
+ * null: their output is described by their own params and description.
+ */
+export interface ValueSummary {
+  /** tuple channel names in order, e.g. ['left', 'right']; absent for scalars */
+  channels?: string[];
+  /** per-channel range, e.g. '0 or 1', '-1 … 1' */
+  range: string;
+  /** what the value represents, endpoints included */
+  meaning: string;
+  /** extra semantics, e.g. 'None = silent' */
+  note?: string;
+}
+
+export function valueSummary(
+  kind: NodeKind,
+  params: Record<string, ParamValue>,
+): ValueSummary | null {
+  const BOOL = '0 or 1';
+  const HALF = '0 … 1';
+  const FULL = '-1 … 1';
+  const channelNames = (base: string) =>
+    Array.from({ length: dynamicPinCount(kind, params) }, (_, i) => `${base}${i + 1}`);
+  switch (kind) {
+    case 'button':
+      return { range: BOOL, meaning: '1 = pressed, 0 = released' };
+    case 'lightsensor':
+      return { range: HALF, meaning: 'amount of light: 0 = dark, 1 = bright' };
+    case 'motionsensor':
+      return { range: BOOL, meaning: '1 = motion detected' };
+    case 'linesensor':
+      return { range: BOOL, meaning: '1 = line detected' };
+    case 'distancesensor':
+      return { range: HALF, meaning: 'distance: 0 = touching, 1 = max range or beyond' };
+    case 'rotaryencoder':
+      return {
+        range: FULL,
+        meaning: 'position: steps / max_steps, -1 = full anticlockwise, 1 = full clockwise',
+        note: Number(params.max_steps) > 0 ? undefined : 'max_steps = 0: steps are unbounded and value stays 0',
+      };
+    case 'buttonboard':
+      return {
+        channels: channelNames('button'),
+        range: BOOL,
+        meaning: 'each channel is one button: 1 = pressed',
+      };
+    case 'pot':
+    case 'mcp3001':
+    case 'mcp3002':
+    case 'mcp3004':
+    case 'mcp3201':
+    case 'mcp3202':
+    case 'mcp3204':
+    case 'mcp3208':
+    case 'mcp3301':
+    case 'mcp3302':
+    case 'mcp3304':
+      return {
+        range: adcMin(kind, params) === -1 ? FULL : HALF,
+        meaning: 'voltage as a fraction of the reference voltage',
+      };
+    case 'led':
+      return { range: BOOL, meaning: '0 = off, 1 = on' };
+    case 'pwmled':
+      return { range: HALF, meaning: 'brightness: 0 = off, 1 = full' };
+    case 'rgbled':
+      return {
+        channels: ['red', 'green', 'blue'],
+        range: params.pwm ? HALF : BOOL,
+        meaning: params.pwm
+          ? 'brightness of each colour channel'
+          : 'each colour channel on or off (pwm=False)',
+      };
+    case 'buzzer':
+      return { range: BOOL, meaning: '0 = silent, 1 = buzzing' };
+    case 'tonalbuzzer':
+      return {
+        range: FULL,
+        meaning: `pitch: 0 = mid tone, ±1 = ${params.octaves} octave${Number(params.octaves) === 1 ? '' : 's'} either side`,
+        note: 'silent when unwired (gpiozero: value None)',
+      };
+    case 'servo':
+      return {
+        range: FULL,
+        meaning: 'position: -1 = min, 0 = mid, 1 = max',
+        note: 'gpiozero: value None = detached (no pulses)',
+      };
+    case 'angularservo':
+      return {
+        range: FULL,
+        meaning: `position: -1 = ${params.min_angle}°, 1 = ${params.max_angle}°`,
+        note: 'gpiozero: value None = detached (no pulses)',
+      };
+    case 'motor':
+    case 'phaseenablemotor':
+      return {
+        range: FULL,
+        meaning: 'speed: -1 = full backward, 0 = stopped, 1 = full forward',
+      };
+    case 'robot':
+      return {
+        channels: ['left', 'right'],
+        range: FULL,
+        meaning: 'speed of each wheel: -1 = full backward, 1 = full forward',
+      };
+    case 'energenie':
+      return { range: BOOL, meaning: '0 = socket off, 1 = socket on' };
+    case 'ledbargraph':
+      return {
+        range: FULL,
+        meaning: 'fraction of LEDs lit; negative values light from the far end',
+      };
+    case 'ledboard':
+      return {
+        channels: channelNames('led'),
+        range: params.pwm ? HALF : BOOL,
+        meaning: params.pwm ? 'brightness of each LED' : 'each LED on or off',
+      };
+    case 'trafficlights':
+      return {
+        channels: ['red', 'amber', 'green'],
+        range: params.pwm ? HALF : BOOL,
+        meaning: params.pwm ? 'brightness of each light' : 'each light on or off',
+      };
+    case 'cputemperature':
+      return {
+        range: HALF,
+        meaning: `temperature scaled: 0 = ${params.min_temp}°C, 1 = ${params.max_temp}°C`,
+      };
+    case 'loadaverage':
+      return {
+        range: HALF,
+        meaning: `load average scaled: 0 = ${params.min_load_average}, 1 = ${params.max_load_average}`,
+      };
+    case 'diskusage':
+      return { range: HALF, meaning: 'how full the filesystem is: 0 = empty, 1 = full' };
+    case 'timeofday':
+      return { range: BOOL, meaning: '1 = between start_time and end_time' };
+    case 'pingserver':
+      return { range: BOOL, meaning: '1 = host answering ping' };
+    default:
+      return null;
+  }
+}
+
 export const SECTIONS: { id: Section; title: string; kinds: NodeKind[] }[] = [
   {
     id: 'inputs',
