@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
+import type { TrashedCanvas } from '../persist';
 
 interface Props {
   name: string;
@@ -10,6 +11,20 @@ interface Props {
   onNew: () => void;
   onDelete: () => void;
   deleteDisabled: boolean;
+  /** recently deleted canvases, most recent first; empty hides the trash button entirely */
+  trash: TrashedCanvas[];
+  onRestore: (name: string) => void;
+}
+
+/** "just now", "5m ago", "3h ago", "2d ago" */
+function timeAgo(at: number): string {
+  const seconds = Math.floor((Date.now() - at) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
 }
 
 /**
@@ -26,10 +41,13 @@ export function CanvasPicker({
   onNew,
   onDelete,
   deleteDisabled,
+  trash,
+  onRestore,
 }: Props) {
   const [draft, setDraft] = useState(name);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
+  const [trashOpen, setTrashOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   // Enter/Escape settle the draft themselves, then blur; the blur
   // handler must not commit again — it would run with stale state
@@ -38,6 +56,11 @@ export function CanvasPicker({
 
   // the canvas changed under us (switch/new/delete): show its name
   useEffect(() => setDraft(name), [name]);
+
+  // the last trashed entry was restored/expired while the popover was open
+  useEffect(() => {
+    if (trash.length === 0) setTrashOpen(false);
+  }, [trash.length]);
 
   const close = () => {
     setOpen(false);
@@ -158,6 +181,43 @@ export function CanvasPicker({
       <button onClick={onDelete} title="Delete this canvas" disabled={deleteDisabled}>
         Delete
       </button>
+      {trash.length > 0 && (
+        <div
+          className="combo canvas-trash"
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setTrashOpen(false);
+          }}
+        >
+          <button
+            className="canvas-trash-toggle"
+            onClick={() => setTrashOpen((o) => !o)}
+            title="Recently deleted canvases"
+            aria-label="Recently deleted canvases"
+            aria-expanded={trashOpen}
+          >
+            Trash <span className="canvas-trash-count">{trash.length}</span>
+          </button>
+          {trashOpen && (
+            <ul className="combo-menu canvas-trash-menu" role="listbox">
+              {trash.map((t) => (
+                <li key={t.name}>
+                  <span className="canvas-trash-name">{t.name}</span>
+                  <span className="canvas-trash-age">{timeAgo(t.deletedAt)}</span>
+                  <button
+                    className="canvas-trash-restore"
+                    onClick={() => {
+                      setTrashOpen(false);
+                      onRestore(t.name);
+                    }}
+                  >
+                    Restore
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }

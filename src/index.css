@@ -94,6 +94,84 @@ body {
   cursor: default;
 }
 
+.canvas-trash {
+  position: relative;
+}
+
+.canvas-trash-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--c-muted);
+  cursor: pointer;
+}
+
+.canvas-trash-toggle:hover {
+  background: var(--c-panel);
+  color: var(--c-text);
+}
+
+.canvas-trash-count {
+  min-width: 15px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--c-panel);
+  color: var(--c-text);
+  font-size: 11px;
+  line-height: 15px;
+  text-align: center;
+}
+
+.canvas-trash-menu {
+  width: 220px;
+  right: 0;
+  left: auto;
+}
+
+.canvas-trash-menu li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: default;
+}
+
+.canvas-trash-menu li:hover {
+  background: none;
+}
+
+.canvas-trash-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.canvas-trash-age {
+  color: var(--c-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.canvas-trash-restore {
+  padding: 3px 6px;
+  border: 1px solid var(--c-border);
+  border-radius: 4px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.canvas-trash-restore:hover {
+  background: var(--c-panel);
+}
+
 .topbar-script,
 .topbar-clear {
   padding: 6px 12px;

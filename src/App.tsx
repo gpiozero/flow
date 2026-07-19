@@ -57,13 +57,16 @@ import {
   currentCanvasName,
   deleteCanvas,
   listCanvases,
+  listTrash,
   loadCanvas,
   nextIdCounter,
   renameCanvas,
+  restoreCanvas,
   saveCanvas,
   setCurrentCanvas,
   untitledCanvasName,
 } from './persist';
+import type { TrashedCanvas } from './persist';
 import { CanvasPicker } from './components/CanvasPicker';
 import { convertParams, convertTarget } from './convert';
 import { FlowContext } from './store';
@@ -110,6 +113,7 @@ function Editor() {
   // change below; the topbar picker switches between named canvases
   const [canvasName, setCanvasName] = useState(currentCanvasName);
   const [canvasList, setCanvasList] = useState(listCanvases);
+  const [trash, setTrash] = useState<TrashedCanvas[]>(listTrash);
   const [initialCanvas] = useState(() => loadCanvas(canvasName));
   const [nodes, setNodes, onNodesChange] = useNodesState<DeviceFlowNode>(initialCanvas.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialCanvas.edges);
@@ -145,6 +149,14 @@ function Editor() {
     const timer = setTimeout(() => saveCanvas(canvasName, nodes, edges), 300);
     return () => clearTimeout(timer);
   }, [canvasName, nodes, edges]);
+
+  // Trashed canvases expire on their own (see persist.ts); poll now
+  // and then occasionally so a long-idle tab's trash badge/list still
+  // reflects entries that have aged out.
+  useEffect(() => {
+    const interval = setInterval(() => setTrash(listTrash()), 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // The simulation clock runs at 10 steps/s whenever a time-based node
   // is on the canvas, or a device's source_delay is long enough that
@@ -649,16 +661,31 @@ function Editor() {
     [canvasName, nodes, edges, showWarning],
   );
 
+  // No confirm dialog: the canvas lands in the trash (see persist.ts)
+  // rather than being dropped immediately, so an accidental click is
+  // recoverable — the trash button next to Delete is the way back.
   const deleteCurrentCanvas = useCallback(() => {
-    if (
-      !window.confirm(
-        `Delete canvas "${canvasName}"? Its nodes and wires will be lost.`,
-      )
-    )
-      return;
     deleteCanvas(canvasName);
     applyCanvas(currentCanvasName());
+    setTrash(listTrash());
   }, [canvasName, applyCanvas]);
+
+  // Bring a trashed canvas back and switch to it, saving the outgoing
+  // canvas first like switchCanvas does.
+  const restoreFromTrash = useCallback(
+    (name: string) => {
+      const restored = restoreCanvas(name);
+      if (!restored) {
+        showWarning(`"${name}" already expired from the trash`);
+        setTrash(listTrash());
+        return;
+      }
+      saveCanvas(canvasName, nodes, edges);
+      applyCanvas(restored);
+      setTrash(listTrash());
+    },
+    [canvasName, nodes, edges, applyCanvas, showWarning],
+  );
 
   const onEdgeDoubleClick = useCallback(
     (_: unknown, edge: Edge) => {
@@ -761,6 +788,8 @@ function Editor() {
             onNew={newCanvas}
             onDelete={deleteCurrentCanvas}
             deleteDisabled={canvasList.length < 2 && nodes.length === 0}
+            trash={trash}
+            onRestore={restoreFromTrash}
           />
           <span className="topbar-note">
             {pi.status === 'connected'
