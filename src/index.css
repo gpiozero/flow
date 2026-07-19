@@ -172,8 +172,7 @@ body {
   background: var(--c-panel);
 }
 
-.topbar-script,
-.topbar-clear {
+.topbar-script {
   padding: 6px 12px;
   border: 1px solid var(--c-border);
   border-radius: 6px;
@@ -183,8 +182,7 @@ body {
   cursor: pointer;
 }
 
-.topbar-script:hover,
-.topbar-clear:hover:not(:disabled) {
+.topbar-script:hover {
   background: var(--c-panel);
 }
 
@@ -456,16 +454,23 @@ body {
   background: var(--c-panel);
 }
 
-.topbar-clear {
+/* .canvas-picker prefixed for specificity over the generic
+   ".canvas-picker button" rule */
+.canvas-picker .canvas-clear {
   color: #dc2626;
   border-color: #fecaca;
 }
 
-.topbar-clear:disabled {
+.canvas-picker .canvas-clear:hover:not(:disabled) {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.canvas-picker .canvas-clear:disabled {
   color: var(--c-muted);
   border-color: var(--c-border);
   cursor: default;
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
 .modal-overlay {

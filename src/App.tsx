@@ -786,6 +786,8 @@ function Editor() {
             onSwitch={switchCanvas}
             onRename={renameCurrentCanvas}
             onNew={newCanvas}
+            onClear={clearCanvas}
+            clearDisabled={nodes.length === 0}
             onDelete={deleteCurrentCanvas}
             deleteDisabled={canvasList.length < 2 && nodes.length === 0}
             trash={trash}
@@ -854,13 +856,6 @@ function Editor() {
               </button>
             )}
           </div>
-          <button
-            className="topbar-clear"
-            onClick={clearCanvas}
-            disabled={nodes.length === 0}
-          >
-            Clear
-          </button>
           <button
             className={`topbar-script ${pinoutOpen ? 'active' : ''}`}
             onClick={() => setPinoutOpen((open) => !open)}

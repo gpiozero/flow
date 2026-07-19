@@ -9,6 +9,8 @@ interface Props {
   /** commit a rename; returns false if rejected (e.g. duplicate name) */
   onRename: (name: string) => boolean;
   onNew: () => void;
+  onClear: () => void;
+  clearDisabled: boolean;
   onDelete: () => void;
   deleteDisabled: boolean;
   /** recently deleted canvases, most recent first; empty hides the trash button entirely */
@@ -39,6 +41,8 @@ export function CanvasPicker({
   onSwitch,
   onRename,
   onNew,
+  onClear,
+  clearDisabled,
   onDelete,
   deleteDisabled,
   trash,
@@ -177,6 +181,14 @@ export function CanvasPicker({
       </div>
       <button onClick={createNew} title="Create a new empty canvas">
         New
+      </button>
+      <button
+        className="canvas-clear"
+        onClick={onClear}
+        title="Remove every node and wire from this canvas"
+        disabled={clearDisabled}
+      >
+        Clear
       </button>
       <button onClick={onDelete} title="Delete this canvas" disabled={deleteDisabled}>
         Delete
