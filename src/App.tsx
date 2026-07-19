@@ -191,6 +191,18 @@ function Editor() {
 
   const pi = usePiLink(nodes, edges, showWarning);
 
+  // Simulator hides the Pi connection panel entirely; switching away
+  // from Live disconnects, so leaving the panel open behind it can't
+  // leave a live link running unseen.
+  const [mode, setMode] = useState<'simulator' | 'live'>('simulator');
+  const changeMode = useCallback(
+    (m: 'simulator' | 'live') => {
+      setMode(m);
+      if (m === 'simulator' && pi.status !== 'disconnected') pi.disconnect();
+    },
+    [pi.status, pi.disconnect],
+  );
+
   const connectOnEnter = (e: ReactKeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && pi.status === 'disconnected') pi.connect();
   };
@@ -793,11 +805,83 @@ function Editor() {
             trash={trash}
             onRestore={restoreFromTrash}
           />
-          <span className="topbar-note">
-            {pi.status === 'connected'
-              ? 'Live — devices running on the Pi'
-              : 'Simulated in the browser'}
-          </span>
+          <div className="mode-toggle" role="group" aria-label="Mode">
+            <button
+              className={mode === 'simulator' ? 'active' : ''}
+              onClick={() => changeMode('simulator')}
+              title="Simulate devices in the browser"
+            >
+              Simulator
+            </button>
+            <button
+              className={mode === 'live' ? 'active' : ''}
+              onClick={() => changeMode('live')}
+              title="Connect to a Pi and drive real devices"
+            >
+              Live
+            </button>
+          </div>
+          {mode === 'live' && (
+            <div className="topbar-pi">
+              <span
+                className={`pi-dot pi-dot-${pi.status}`}
+                role="status"
+                aria-label={
+                  pi.status === 'connected'
+                    ? 'Connected — devices running on the Pi'
+                    : pi.status === 'connecting'
+                      ? 'Connecting'
+                      : 'Not connected'
+                }
+                title={
+                  pi.status === 'connected'
+                    ? 'Connected — devices running on the Pi'
+                    : pi.status === 'connecting'
+                      ? 'Connecting…'
+                      : 'Not connected'
+                }
+              />
+              <HostCombo
+                value={pi.host}
+                onChange={pi.setHost}
+                onPick={(s) => {
+                  pi.setHost(s.host);
+                  if (s.port !== undefined) pi.setPort(s.port);
+                }}
+                suggestions={[
+                  ...pi.history,
+                  ...STANDING_HOSTS.filter(
+                    (h) => !pi.history.some((e) => e.host === h),
+                  ).map((host) => ({ host, port: DEFAULT_PORT })),
+                ]}
+                disabled={pi.status !== 'disconnected'}
+                onConnect={pi.connect}
+              />
+              <span className="pi-port-sep" aria-hidden="true">
+                :
+              </span>
+              <input
+                className="pi-port"
+                value={pi.port}
+                onChange={(e) => pi.setPort(e.target.value)}
+                onKeyDown={connectOnEnter}
+                disabled={pi.status !== 'disconnected'}
+                placeholder="8765"
+                inputMode="numeric"
+                title="Pi agent port"
+                aria-label="Pi agent port"
+              />
+              {pi.status === 'disconnected' ? (
+                <button className="topbar-script" onClick={pi.connect}>
+                  Connect to Pi
+                </button>
+              ) : (
+                <button className="topbar-script" onClick={pi.disconnect}>
+                  {pi.status === 'connecting' ? 'Cancel' : 'Disconnect'}
+                </button>
+              )}
+            </div>
+          )}
           <div className="numbering-toggle" role="group" aria-label="Pin numbering">
             <button
               className={numbering === 'bcm' ? 'active' : ''}
@@ -813,48 +897,6 @@ function Editor() {
             >
               BOARD
             </button>
-          </div>
-          <div className="topbar-pi">
-            <span className={`pi-dot pi-dot-${pi.status}`} aria-hidden="true" />
-            <HostCombo
-              value={pi.host}
-              onChange={pi.setHost}
-              onPick={(s) => {
-                pi.setHost(s.host);
-                if (s.port !== undefined) pi.setPort(s.port);
-              }}
-              suggestions={[
-                ...pi.history,
-                ...STANDING_HOSTS.filter(
-                  (h) => !pi.history.some((e) => e.host === h),
-                ).map((host) => ({ host, port: DEFAULT_PORT })),
-              ]}
-              disabled={pi.status !== 'disconnected'}
-              onConnect={pi.connect}
-            />
-            <span className="pi-port-sep" aria-hidden="true">
-              :
-            </span>
-            <input
-              className="pi-port"
-              value={pi.port}
-              onChange={(e) => pi.setPort(e.target.value)}
-              onKeyDown={connectOnEnter}
-              disabled={pi.status !== 'disconnected'}
-              placeholder="8765"
-              inputMode="numeric"
-              title="Pi agent port"
-              aria-label="Pi agent port"
-            />
-            {pi.status === 'disconnected' ? (
-              <button className="topbar-script" onClick={pi.connect}>
-                Connect to Pi
-              </button>
-            ) : (
-              <button className="topbar-script" onClick={pi.disconnect}>
-                {pi.status === 'connecting' ? 'Cancel' : 'Disconnect'}
-              </button>
-            )}
           </div>
           <button
             className={`topbar-script ${pinoutOpen ? 'active' : ''}`}
