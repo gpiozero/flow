@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { NAME_PATTERN, SPECS, requiredPinParams, valueSummary } from '../catalog';
-import { deviceConstructor, toolCall } from '../codegen';
 import { pinDisplay, pinOptions } from '../pins';
 import { splitLabel } from '../split';
 import { convertTarget } from '../convert';
@@ -199,9 +198,6 @@ export function ConfigPanel({
           ))}
         </div>
       )}
-      <div className="config-code">
-        <code>{preview(node, numbering)}</code>
-      </div>
       <button className="config-duplicate" onClick={() => onDuplicate(node.id)}>
         Duplicate node
       </button>
@@ -286,15 +282,4 @@ function NameField({
       {error && <span className="config-error">{error}</span>}
     </label>
   );
-}
-
-// Isolated single-node preview: for anonymous tools/sources this can't
-// know the real wiring, so it stands a literal `values` placeholder in
-// for whatever's actually connected (see codegen.ts for the full thing).
-function preview(node: DeviceFlowNode, numbering: PinNumbering): string {
-  const spec = SPECS[node.data.kind];
-  if (spec.section === 'tools' || spec.section === 'sources') {
-    return toolCall(node, spec.hasInput ? ['values'] : []);
-  }
-  return deviceConstructor(node, numbering);
 }
