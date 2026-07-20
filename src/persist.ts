@@ -137,11 +137,22 @@ export function setCurrentCanvas(name: string): void {
   writeStore(store);
 }
 
+/**
+ * Whether a value is even shaped like a SavedCanvas — distinct from
+ * "shaped right but happens to have zero nodes", so a malformed import
+ * (e.g. JSON that isn't from this app at all) can be told apart from a
+ * legitimately empty one and rejected with a warning instead of
+ * silently landing as a blank canvas.
+ */
+function isSavedCanvasShape(value: unknown): value is SavedCanvas {
+  const v = value as Partial<SavedCanvas> | null | undefined;
+  return !!v && Array.isArray(v.nodes) && Array.isArray(v.edges);
+}
+
 /** Validate and coerce a possibly-untrusted SavedCanvas-shaped value */
 function fromSaved(saved: unknown): { nodes: DeviceFlowNode[]; edges: Edge[] } {
-  const empty = { nodes: [], edges: [] };
-  const s = saved as Partial<SavedCanvas> | null | undefined;
-  if (!s || !Array.isArray(s.nodes) || !Array.isArray(s.edges)) return empty;
+  if (!isSavedCanvasShape(saved)) return { nodes: [], edges: [] };
+  const s = saved;
   const nodes: DeviceFlowNode[] = s.nodes
     .filter(
       (n) =>
@@ -341,7 +352,8 @@ export async function decodeSharedCanvas(
   param: string,
 ): Promise<{ nodes: DeviceFlowNode[]; edges: Edge[] } | null> {
   try {
-    return fromSaved(JSON.parse(await inflateFromBase64Url(param)));
+    const parsed: unknown = JSON.parse(await inflateFromBase64Url(param));
+    return isSavedCanvasShape(parsed) ? fromSaved(parsed) : null;
   } catch {
     return null;
   }
@@ -350,7 +362,8 @@ export async function decodeSharedCanvas(
 /** Import a canvas from pasted raw JSON (the `buildShareJson` shape); null if unparseable */
 export function importSharedJson(json: string): { nodes: DeviceFlowNode[]; edges: Edge[] } | null {
   try {
-    return fromSaved(JSON.parse(json));
+    const parsed: unknown = JSON.parse(json);
+    return isSavedCanvasShape(parsed) ? fromSaved(parsed) : null;
   } catch {
     return null;
   }

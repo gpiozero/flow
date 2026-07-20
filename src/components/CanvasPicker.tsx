@@ -169,7 +169,13 @@ export function CanvasPicker({
   const handleImportFiles = (files: FileList | null) => {
     const file = files?.[0];
     if (!file) return;
-    file.text().then(loadImportText);
+    // the native file dialog (Choose file) blurs the popover shut before
+    // this runs — reopen it so a failure's warning has the textarea
+    // visible for context, same as a failed paste
+    setImportOpen(true);
+    // an unhandled rejection here (unreadable file) would otherwise fail
+    // silently — route it through the normal invalid-JSON warning instead
+    file.text().then(loadImportText, () => loadImportText(''));
   };
 
   return (
@@ -374,6 +380,25 @@ export function CanvasPicker({
         >
           Import
         </button>
+        {/*
+          Always mounted, regardless of importOpen: opening the native
+          file picker blurs the page (the OS dialog isn't part of the
+          DOM), which closes this popover via onBlur above. If this
+          input only existed inside the conditional block below, that
+          close would unmount it while the dialog was still open, so
+          the change event from picking a file would have nothing to
+          land on — a silent no-op.
+        */}
+        <input
+          ref={importFileInputRef}
+          type="file"
+          accept="application/json,.json"
+          className="canvas-import-file-input"
+          onChange={(e) => {
+            handleImportFiles(e.target.files);
+            e.target.value = '';
+          }}
+        />
         {importOpen && (
           <div className="combo-menu canvas-import-menu" role="menu">
             <div
@@ -403,16 +428,6 @@ export function CanvasPicker({
               >
                 Choose file…
               </button>
-              <input
-                ref={importFileInputRef}
-                type="file"
-                accept="application/json,.json"
-                className="canvas-import-file-input"
-                onChange={(e) => {
-                  handleImportFiles(e.target.files);
-                  e.target.value = '';
-                }}
-              />
             </div>
             <button
               className="canvas-import-load"
