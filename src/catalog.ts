@@ -1077,3 +1077,94 @@ export function defaultParams(kind: NodeKind): Record<string, ParamValue> {
 export function defaultState(kind: NodeKind): Record<string, ParamValue> {
   return { ...(SPECS[kind].initialState ?? {}) };
 }
+
+/**
+ * Which gpiozero docs page (under /en/stable/) each kind's API entry
+ * lives on. Devices link to their class (#gpiozero.ClassName); tools
+ * link to their function under gpiozero.tools. Doesn't follow section
+ * 1:1 — several "outputs"/"inputs" kinds (boards, composite devices)
+ * are documented on api_boards.html instead of api_output.html/api_input.html.
+ */
+const DOCS_PAGE: Record<NodeKind, string> = {
+  button: 'api_input',
+  mcp3008: 'api_spi',
+  mcp3001: 'api_spi',
+  mcp3002: 'api_spi',
+  mcp3004: 'api_spi',
+  mcp3201: 'api_spi',
+  mcp3202: 'api_spi',
+  mcp3204: 'api_spi',
+  mcp3208: 'api_spi',
+  mcp3301: 'api_spi',
+  mcp3302: 'api_spi',
+  mcp3304: 'api_spi',
+  lightsensor: 'api_input',
+  motionsensor: 'api_input',
+  linesensor: 'api_input',
+  distancesensor: 'api_input',
+  rotaryencoder: 'api_input',
+  buttonboard: 'api_boards',
+  led: 'api_output',
+  pwmled: 'api_output',
+  buzzer: 'api_output',
+  tonalbuzzer: 'api_output',
+  servo: 'api_output',
+  angularservo: 'api_output',
+  motor: 'api_output',
+  phaseenablemotor: 'api_output',
+  energenie: 'api_boards',
+  cputemperature: 'api_internal',
+  loadaverage: 'api_internal',
+  diskusage: 'api_internal',
+  timeofday: 'api_internal',
+  pingserver: 'api_internal',
+  ledbargraph: 'api_boards',
+  ledboard: 'api_boards',
+  robot: 'api_boards',
+  rgbled: 'api_output',
+  trafficlights: 'api_boards',
+  negated: 'api_tools',
+  inverted: 'api_tools',
+  all_values: 'api_tools',
+  any_values: 'api_tools',
+  summed: 'api_tools',
+  smoothed: 'api_tools',
+  queued: 'api_tools',
+  pre_delayed: 'api_tools',
+  post_delayed: 'api_tools',
+  pre_periodic_filtered: 'api_tools',
+  post_periodic_filtered: 'api_tools',
+  alternating_values: 'api_tools',
+  random_values: 'api_tools',
+  sin_values: 'api_tools',
+  cos_values: 'api_tools',
+  ramping_values: 'api_tools',
+  scaled: 'api_tools',
+  scaled_full: 'api_tools',
+  scaled_half: 'api_tools',
+  clamped: 'api_tools',
+  absoluted: 'api_tools',
+  quantized: 'api_tools',
+  booleanized: 'api_tools',
+  averaged: 'api_tools',
+  multiplied: 'api_tools',
+  zip_values: 'api_tools',
+};
+
+/**
+ * scaled_full/scaled_half are this app's own presets (fixed-parameter
+ * scaled() calls), not real gpiozero.tools functions — link to scaled
+ * itself, the closest real API entry.
+ */
+const DOCS_LABEL_OVERRIDE: Partial<Record<NodeKind, string>> = {
+  scaled_full: 'scaled',
+  scaled_half: 'scaled',
+};
+
+/** Direct link to this kind's class or function in the gpiozero docs (stable) */
+export function docsUrl(kind: NodeKind): string {
+  const page = DOCS_PAGE[kind];
+  const label = DOCS_LABEL_OVERRIDE[kind] ?? SPECS[kind].label;
+  const anchor = page === 'api_tools' ? `gpiozero.tools.${label}` : `gpiozero.${label}`;
+  return `https://gpiozero.readthedocs.io/en/stable/${page}.html#${anchor}`;
+}

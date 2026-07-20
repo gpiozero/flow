@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { NAME_PATTERN, SPECS, requiredPinParams, valueSummary } from '../catalog';
+import { NAME_PATTERN, SPECS, docsUrl, requiredPinParams, valueSummary } from '../catalog';
 import { pinDisplay, pinOptions } from '../pins';
 import { splitLabel } from '../split';
 import { convertTarget } from '../convert';
@@ -88,6 +88,14 @@ export function ConfigPanel({
     <aside className="config-panel">
       <h2>{spec.label}</h2>
       <p className="config-desc">{spec.description}</p>
+      <a
+        className="config-docs-link"
+        href={docsUrl(node.data.kind)}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        View gpiozero docs ↗
+      </a>
       {typeof node.data.name === 'string' && (
         <NameField
           key={node.id}

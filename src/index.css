@@ -2008,7 +2008,19 @@ body {
 .config-desc {
   font-size: 12px;
   color: var(--c-muted);
+  margin: 0 0 10px;
+}
+
+.config-docs-link {
+  display: inline-block;
   margin: 0 0 14px;
+  font-size: 12px;
+  color: var(--c-tools);
+  text-decoration: none;
+}
+
+.config-docs-link:hover {
+  text-decoration: underline;
 }
 
 .config-empty {
