@@ -54,8 +54,13 @@ import { pinDisplay } from './pins';
 import type { PinNumbering } from './pins';
 import { splitParts } from './split';
 import {
+  buildShareJson,
+  buildShareParam,
   currentCanvasName,
+  decodeSharedCanvas,
   deleteCanvas,
+  encodeSharedCanvas,
+  importSharedJson,
   listCanvases,
   listTrash,
   loadCanvas,
@@ -63,6 +68,8 @@ import {
   renameCanvas,
   restoreCanvas,
   saveCanvas,
+  SHARE_PARAM_LIMIT,
+  SHARE_TOO_LARGE,
   setCurrentCanvas,
   untitledCanvasName,
 } from './persist';
@@ -108,13 +115,26 @@ function pinsInUse(nodes: DeviceFlowNode[]): Set<number> {
   return pins;
 }
 
+/** A `#canvas=<payload>` fragment left by a share link, decoded once at startup */
+function readSharedCanvasFromUrl(): { nodes: DeviceFlowNode[]; edges: Edge[] } | null {
+  const match = /^#canvas=(.+)$/.exec(window.location.hash);
+  return match ? decodeSharedCanvas(match[1]) : null;
+}
+
 function Editor() {
+  // A share link takes over the usual "restore the last canvas" startup:
+  // it's imported as a new named canvas instead, and the fragment is
+  // stripped so a refresh doesn't re-import it.
+  const [shareAttempted] = useState(() => /^#canvas=/.test(window.location.hash));
+  const [sharedImport] = useState(readSharedCanvasFromUrl);
   // the current canvas survives reloads: restored once here, saved on
   // change below; the topbar picker switches between named canvases
-  const [canvasName, setCanvasName] = useState(currentCanvasName);
+  const [canvasName, setCanvasName] = useState(() =>
+    sharedImport ? untitledCanvasName(listCanvases(), 'shared canvas') : currentCanvasName(),
+  );
   const [canvasList, setCanvasList] = useState(listCanvases);
   const [trash, setTrash] = useState<TrashedCanvas[]>(listTrash);
-  const [initialCanvas] = useState(() => loadCanvas(canvasName));
+  const [initialCanvas] = useState(() => sharedImport ?? loadCanvas(canvasName));
   const [nodes, setNodes, onNodesChange] = useNodesState<DeviceFlowNode>(initialCanvas.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialCanvas.edges);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -142,6 +162,24 @@ function Editor() {
   }, []);
 
   useEffect(() => () => window.clearTimeout(warningTimer.current), []);
+
+  // Land a share-link import in the canvas store under its new name and
+  // scrub the fragment, so refreshing doesn't re-import it or leak the
+  // payload into browser history entries beyond this one.
+  useEffect(() => {
+    if (!shareAttempted) return;
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    if (!sharedImport) {
+      showWarning('This share link is invalid or corrupted');
+      return;
+    }
+    saveCanvas(canvasName, sharedImport.nodes, sharedImport.edges);
+    setCurrentCanvas(canvasName);
+    setCanvasList(listCanvases());
+    showWarning(`Imported shared canvas as "${canvasName}"`);
+    // mount-only: canvasName/sharedImport/shareAttempted are stable for the app's lifetime
+  }, []);
+
   const { screenToFlowPosition } = useReactFlow();
   const idCounter = useRef(nextIdCounter(initialCanvas.nodes));
 
@@ -673,6 +711,69 @@ function Editor() {
     [canvasName, nodes, edges, showWarning],
   );
 
+  // Encoded share-link size with/without interactive state, so the
+  // picker can show a live size readout as the user toggles the option.
+  const shareSizeWithState = useMemo(
+    () => buildShareParam(nodes, edges, true).length,
+    [nodes, edges],
+  );
+  const shareSizeWithoutState = useMemo(
+    () => buildShareParam(nodes, edges, false).length,
+    [nodes, edges],
+  );
+
+  // Copy a `#canvas=` link encoding the current nodes/edges to the
+  // clipboard. No compression or backend storage yet, so a large canvas
+  // is simply refused — see SHARE_PARAM_LIMIT in persist.ts.
+  const shareCanvas = useCallback(
+    (includeState: boolean) => {
+      const encoded = encodeSharedCanvas(nodes, edges, includeState);
+      if (encoded === SHARE_TOO_LARGE) {
+        showWarning('This canvas is too large to share via a link');
+        return;
+      }
+      const url = `${window.location.origin}${window.location.pathname}#canvas=${encoded}`;
+      navigator.clipboard.writeText(url).then(
+        () => showWarning('Shareable link copied to clipboard'),
+        () => showWarning(url),
+      );
+    },
+    [nodes, edges, showWarning],
+  );
+
+  // Copy the raw (un-encoded) canvas JSON — no URL length limit, so
+  // this is the fallback for a canvas too big to share as a link.
+  const shareCanvasJson = useCallback(
+    (includeState: boolean) => {
+      const json = buildShareJson(nodes, edges, includeState);
+      navigator.clipboard.writeText(json).then(
+        () => showWarning('Canvas JSON copied to clipboard'),
+        () => showWarning('Could not copy to clipboard'),
+      );
+    },
+    [nodes, edges, showWarning],
+  );
+
+  // Import a canvas from pasted JSON (the counterpart to "copy raw
+  // JSON"): lands as a new named canvas, current canvas saved first.
+  // Returns whether the paste was valid, so the picker knows to clear
+  // its textarea and close.
+  const importCanvasJson = useCallback(
+    (json: string): boolean => {
+      const imported = importSharedJson(json);
+      if (!imported) {
+        showWarning('That JSON is not a valid canvas');
+        return false;
+      }
+      const name = untitledCanvasName(listCanvases(), 'imported canvas');
+      saveCanvas(canvasName, nodes, edges);
+      saveCanvas(name, imported.nodes, imported.edges);
+      applyCanvas(name);
+      return true;
+    },
+    [canvasName, nodes, edges, applyCanvas, showWarning],
+  );
+
   // No confirm dialog: the canvas lands in the trash (see persist.ts)
   // rather than being dropped immediately, so an accidental click is
   // recoverable — the trash button next to Delete is the way back.
@@ -802,6 +903,12 @@ function Editor() {
             clearDisabled={nodes.length === 0}
             onDelete={deleteCurrentCanvas}
             deleteDisabled={canvasList.length < 2 && nodes.length === 0}
+            onShare={shareCanvas}
+            onShareJson={shareCanvasJson}
+            shareSizeWithState={shareSizeWithState}
+            shareSizeWithoutState={shareSizeWithoutState}
+            shareLimit={SHARE_PARAM_LIMIT}
+            onImport={importCanvasJson}
             trash={trash}
             onRestore={restoreFromTrash}
           />

@@ -22,17 +22,31 @@ const LEGACY_KEY = 'gpio-webapp.canvas';
 
 export const DEFAULT_CANVAS = 'untitled canvas';
 
-/** A fresh untitled name: 'untitled canvas', then 'untitled canvas 2', … */
-export function untitledCanvasName(existing: readonly string[]): string {
-  if (!existing.includes(DEFAULT_CANVAS)) return DEFAULT_CANVAS;
+/** A fresh name off `base`: `base`, then `base 2`, `base 3`, … */
+export function untitledCanvasName(existing: readonly string[], base = DEFAULT_CANVAS): string {
+  if (!existing.includes(base)) return base;
   for (let i = 2; ; i++) {
-    const name = `${DEFAULT_CANVAS} ${i}`;
+    const name = `${base} ${i}`;
     if (!existing.includes(name)) return name;
   }
 }
 
 interface SavedCanvas {
-  nodes: { id: string; position: { x: number; y: number }; data: DeviceFlowNode['data'] }[];
+  nodes: {
+    id: string;
+    position: { x: number; y: number };
+    data: {
+      // spelled out field-by-field, not Omit<DeviceFlowNode['data'], 'state'>:
+      // DeviceData extends Record<string, unknown>, so its index signature
+      // collapses keyof to `string` and Omit degenerates to `{}`
+      kind: DeviceFlowNode['data']['kind'];
+      name?: DeviceFlowNode['data']['name'];
+      params: DeviceFlowNode['data']['params'];
+      // optional here only: a share link without it falls back to the
+      // node's catalog default, filled in on load by fromSaved
+      state?: DeviceFlowNode['data']['state'];
+    };
+  }[];
   edges: { id: string; source: string; target: string }[];
 }
 
@@ -123,11 +137,12 @@ export function setCurrentCanvas(name: string): void {
   writeStore(store);
 }
 
-export function loadCanvas(name: string): { nodes: DeviceFlowNode[]; edges: Edge[] } {
+/** Validate and coerce a possibly-untrusted SavedCanvas-shaped value */
+function fromSaved(saved: unknown): { nodes: DeviceFlowNode[]; edges: Edge[] } {
   const empty = { nodes: [], edges: [] };
-  const saved = readStore().canvases[name];
-  if (!saved || !Array.isArray(saved.nodes) || !Array.isArray(saved.edges)) return empty;
-  const nodes: DeviceFlowNode[] = saved.nodes
+  const s = saved as Partial<SavedCanvas> | null | undefined;
+  if (!s || !Array.isArray(s.nodes) || !Array.isArray(s.edges)) return empty;
+  const nodes: DeviceFlowNode[] = s.nodes
     .filter(
       (n) =>
         n &&
@@ -138,15 +153,24 @@ export function loadCanvas(name: string): { nodes: DeviceFlowNode[]; edges: Edge
         typeof n.data?.kind === 'string' &&
         n.data.kind in SPECS,
     )
-    .map((n) => ({ id: n.id, type: 'device', position: n.position, data: n.data }));
+    .map((n) => ({
+      id: n.id,
+      type: 'device' as const,
+      position: n.position,
+      data: { ...n.data, state: n.data.state ?? { ...(SPECS[n.data.kind].initialState ?? {}) } },
+    }));
   const ids = new Set(nodes.map((n) => n.id));
-  const edges: Edge[] = saved.edges
+  const edges: Edge[] = s.edges
     .filter(
       (e) =>
         e && typeof e.id === 'string' && ids.has(e.source) && ids.has(e.target),
     )
     .map((e) => ({ id: e.id, source: e.source, target: e.target, type: 'wire' }));
   return { nodes, edges };
+}
+
+export function loadCanvas(name: string): { nodes: DeviceFlowNode[]; edges: Edge[] } {
+  return fromSaved(readStore().canvases[name]);
 }
 
 export function saveCanvas(name: string, nodes: DeviceFlowNode[], edges: Edge[]): void {
@@ -230,4 +254,87 @@ export function nextIdCounter(nodes: DeviceFlowNode[]): number {
     if (m) max = Math.max(max, Number(m[1]));
   }
   return max + 1;
+}
+
+/**
+ * Sharing a canvas via URL: the SavedCanvas JSON, base64url-encoded into
+ * a `#canvas=` fragment (a fragment, not a query param, so it never
+ * reaches a server's access logs). No compression or backend storage
+ * yet — large canvases are simply refused with SHARE_TOO_LARGE.
+ */
+export const SHARE_PARAM_LIMIT = 1800;
+export const SHARE_TOO_LARGE = Symbol('canvas too large to share via URL');
+
+function base64UrlEncode(s: string): string {
+  const bytes = new TextEncoder().encode(s);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function base64UrlDecode(s: string): string {
+  const padded = s.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = (4 - (padded.length % 4)) % 4;
+  const binary = atob(padded + '='.repeat(pad));
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+/**
+ * The share payload for nodes/edges, as plain JSON — always produced
+ * regardless of length, so the UI can show a size readout even when
+ * the URL form is over the limit, and so it can be copied raw as a
+ * fallback for canvases too big for a link. `includeState` false drops
+ * each node's interactive state from the payload entirely (e.g. a
+ * pressed button un-presses) rather than carrying the sender's
+ * in-progress simulation across the link; fromSaved fills it back in
+ * with the node's catalog default on load.
+ */
+export function buildShareJson(
+  nodes: DeviceFlowNode[],
+  edges: Edge[],
+  includeState: boolean,
+): string {
+  const saved: SavedCanvas = {
+    nodes: nodes.map((n) => {
+      if (includeState) return { id: n.id, position: n.position, data: n.data };
+      const { state: _state, ...rest } = n.data;
+      return { id: n.id, position: n.position, data: rest };
+    }),
+    edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
+  };
+  return JSON.stringify(saved);
+}
+
+/** Base64url-encoded form of buildShareJson, for the `#canvas=` link and its length check */
+export function buildShareParam(nodes: DeviceFlowNode[], edges: Edge[], includeState: boolean): string {
+  return base64UrlEncode(buildShareJson(nodes, edges, includeState));
+}
+
+/** Encode nodes/edges for a share link; SHARE_TOO_LARGE if it won't fit a URL */
+export function encodeSharedCanvas(
+  nodes: DeviceFlowNode[],
+  edges: Edge[],
+  includeState: boolean,
+): string | typeof SHARE_TOO_LARGE {
+  const encoded = buildShareParam(nodes, edges, includeState);
+  return encoded.length > SHARE_PARAM_LIMIT ? SHARE_TOO_LARGE : encoded;
+}
+
+/** Decode a `#canvas=` payload; null if it's missing, malformed, or unparseable */
+export function decodeSharedCanvas(param: string): { nodes: DeviceFlowNode[]; edges: Edge[] } | null {
+  try {
+    return fromSaved(JSON.parse(base64UrlDecode(param)));
+  } catch {
+    return null;
+  }
+}
+
+/** Import a canvas from pasted raw JSON (the `buildShareJson` shape); null if unparseable */
+export function importSharedJson(json: string): { nodes: DeviceFlowNode[]; edges: Edge[] } | null {
+  try {
+    return fromSaved(JSON.parse(json));
+  } catch {
+    return null;
+  }
 }

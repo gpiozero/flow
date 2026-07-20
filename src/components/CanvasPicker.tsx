@@ -13,6 +13,17 @@ interface Props {
   clearDisabled: boolean;
   onDelete: () => void;
   deleteDisabled: boolean;
+  /** copy a shareable link for the current canvas to the clipboard */
+  onShare: (includeState: boolean) => void;
+  /** copy the raw canvas JSON — no size limit, the fallback for a link that's too big */
+  onShareJson: (includeState: boolean) => void;
+  /** encoded share-link length (chars) with/without interactive state, for the size readout */
+  shareSizeWithState: number;
+  shareSizeWithoutState: number;
+  /** encoded length past which a share link is rejected as too large */
+  shareLimit: number;
+  /** import a canvas from pasted JSON; returns whether it was valid */
+  onImport: (json: string) => boolean;
   /** recently deleted canvases, most recent first; empty hides the trash button entirely */
   trash: TrashedCanvas[];
   onRestore: (name: string) => void;
@@ -45,6 +56,12 @@ export function CanvasPicker({
   clearDisabled,
   onDelete,
   deleteDisabled,
+  onShare,
+  onShareJson,
+  shareSizeWithState,
+  shareSizeWithoutState,
+  shareLimit,
+  onImport,
   trash,
   onRestore,
 }: Props) {
@@ -52,6 +69,15 @@ export function CanvasPicker({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const [trashOpen, setTrashOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  // configuration only by default — the more portable, more shareable option
+  const [includeState, setIncludeState] = useState(false);
+  const shareSize = includeState ? shareSizeWithState : shareSizeWithoutState;
+  const shareTooLarge = shareSize > shareLimit;
+  // too big regardless of the toggle: no point offering it as a choice
+  const bothTooLarge = shareSizeWithState > shareLimit && shareSizeWithoutState > shareLimit;
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   // Enter/Escape settle the draft themselves, then blur; the blur
   // handler must not commit again — it would run with stale state
@@ -193,6 +219,106 @@ export function CanvasPicker({
       <button onClick={onDelete} title="Delete this canvas" disabled={deleteDisabled}>
         Delete
       </button>
+      <div
+        className="combo canvas-share"
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setShareOpen(false);
+        }}
+      >
+        <button
+          className="canvas-share-toggle"
+          onClick={() => setShareOpen((o) => !o)}
+          title="Copy a shareable link to this canvas"
+          aria-expanded={shareOpen}
+        >
+          Share
+        </button>
+        {shareOpen && (
+          <div className="combo-menu canvas-share-menu" role="menu">
+            {bothTooLarge ? (
+              <div className="canvas-share-size over-limit">
+                Too big to share via a link — copy the raw JSON instead
+              </div>
+            ) : (
+              <>
+                <label
+                  className="canvas-share-option"
+                  onMouseDown={(e) => e.preventDefault() /* keep focus, so blur doesn't close the popover before the click lands */}
+                >
+                  <input
+                    type="checkbox"
+                    checked={includeState}
+                    onChange={(e) => setIncludeState(e.target.checked)}
+                  />
+                  Include current state
+                </label>
+                <div className={`canvas-share-size${shareTooLarge ? ' over-limit' : ''}`}>
+                  {shareSize.toLocaleString()} / {shareLimit.toLocaleString()} characters
+                  {shareTooLarge && ' — too large to share'}
+                </div>
+                <button
+                  className="canvas-share-copy"
+                  onClick={() => {
+                    onShare(includeState);
+                    setShareOpen(false);
+                  }}
+                  disabled={shareTooLarge}
+                >
+                  Copy link
+                </button>
+              </>
+            )}
+            <button
+              className="canvas-share-copy-json"
+              onClick={() => {
+                onShareJson(includeState);
+                setShareOpen(false);
+              }}
+              title="Copy the raw canvas JSON — no size limit, for when the link is too big to share"
+            >
+              Copy raw JSON
+            </button>
+          </div>
+        )}
+      </div>
+      <div
+        className="combo canvas-import"
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setImportOpen(false);
+        }}
+      >
+        <button
+          className="canvas-import-toggle"
+          onClick={() => setImportOpen((o) => !o)}
+          title="Import a canvas from pasted JSON"
+          aria-expanded={importOpen}
+        >
+          Import
+        </button>
+        {importOpen && (
+          <div className="combo-menu canvas-import-menu" role="menu">
+            <textarea
+              className="canvas-import-textarea"
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              placeholder="Paste canvas JSON here"
+              aria-label="Canvas JSON to import"
+            />
+            <button
+              className="canvas-import-load"
+              onClick={() => {
+                if (onImport(importText)) {
+                  setImportText('');
+                  setImportOpen(false);
+                }
+              }}
+              disabled={importText.trim() === ''}
+            >
+              Load
+            </button>
+          </div>
+        )}
+      </div>
       {trash.length > 0 && (
         <div
           className="combo canvas-trash"
