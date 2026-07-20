@@ -185,7 +185,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
             <span className="tactile-cap" />
           </button>
         );
-      case 'pot':
+      case 'mcp3008':
       case 'mcp3001':
       case 'mcp3002':
       case 'mcp3004':
@@ -579,7 +579,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         return `${data.params.leds} leds`;
       case 'buttonboard':
         return `${data.params.buttons} buttons`;
-      case 'pot':
+      case 'mcp3008':
       case 'mcp3002':
       case 'mcp3004':
       case 'mcp3202':

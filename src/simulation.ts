@@ -130,7 +130,7 @@ function nodeValue(
     case 'loadaverage':
     case 'diskusage':
       return clamp(Number(state.level ?? 0), 0, 1);
-    case 'pot':
+    case 'mcp3008':
     case 'mcp3001':
     case 'mcp3002':
     case 'mcp3004':

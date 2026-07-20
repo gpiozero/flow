@@ -7,7 +7,7 @@ export type NodeKind =
   | 'rgbled'
   | 'trafficlights'
   | 'zip_values'
-  | 'pot'
+  | 'mcp3008'
   | 'mcp3001'
   | 'mcp3002'
   | 'mcp3004'

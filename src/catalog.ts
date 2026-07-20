@@ -53,8 +53,8 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     ],
     initialState: { pressed: false },
   },
-  pot: {
-    kind: 'pot',
+  mcp3008: {
+    kind: 'mcp3008',
     label: 'MCP3008',
     section: 'adc',
     description: 'Potentiometer via MCP3008 ADC: 10-bit, 8 channels',
@@ -807,7 +807,7 @@ export function valueSummary(
         range: BOOL,
         meaning: 'each channel is one button: 1 = pressed',
       };
-    case 'pot':
+    case 'mcp3008':
     case 'mcp3001':
     case 'mcp3002':
     case 'mcp3004':
@@ -924,7 +924,7 @@ export const SECTIONS: { id: Section; title: string; kinds: NodeKind[] }[] = [
     id: 'adc',
     title: 'ADCs',
     kinds: [
-      'pot',
+      'mcp3008',
       'mcp3001',
       'mcp3002',
       'mcp3004',
@@ -1044,7 +1044,7 @@ export function isDevice(kind: NodeKind): boolean {
 export function nextDeviceName(base: string, usedNames: ReadonlySet<string>): string {
   if (!usedNames.has(base)) return base;
   for (let i = 2; ; i++) {
-    const name = `${base}${i}`;
+    const name = `${base}_${i}`;
     if (!usedNames.has(name)) return name;
   }
 }

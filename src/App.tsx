@@ -409,10 +409,11 @@ function Editor() {
       }
       // each ADC kind is one chip, so channel pools are per kind
       const usedChannels = channelsInUse(nodes.filter((n) => n.data.kind === kind));
+      let channel: number | null = null;
       for (const p of SPECS[kind].params) {
         if (p.type !== 'channel') continue;
         const count = (p.max ?? 7) + 1;
-        const channel = nextFreeChannel(usedChannels, count);
+        channel = nextFreeChannel(usedChannels, count);
         if (channel === null) {
           showWarning(
             `${SPECS[kind].label} needs a free ADC channel, but all ${count} are in use`,
@@ -422,13 +423,16 @@ function Editor() {
         params[p.name] = channel;
         usedChannels.add(channel);
       }
+      // multi-channel ADCs default to e.g. mcp3008_0 so the channel is
+      // obvious at a glance; other devices just get the bare kind
+      const nameBase = channel !== null ? `${kind}_${channel}` : kind;
       const node: DeviceFlowNode = {
         id: `${kind}-${idCounter.current++}`,
         type: 'device',
         position,
         data: {
           kind,
-          ...(isDevice(kind) ? { name: nextDeviceName(kind, namesInUse(nodes)) } : {}),
+          ...(isDevice(kind) ? { name: nextDeviceName(nameBase, namesInUse(nodes)) } : {}),
           params,
           state: base ? { ...base.state } : defaultState(kind),
         },
