@@ -117,3 +117,21 @@
   flex-direction: column;
   gap: 28px;
 }
+
+@media (max-width: 600px) {
+  .live-content {
+    width: calc(100% - 32px);
+    max-width: none;
+    margin-left: 16px;
+    margin-right: 16px;
+    padding: 32px 20px;
+  }
+
+  .live-content h1 {
+    font-size: 23px;
+  }
+
+  .live-option-title {
+    font-size: 18px;
+  }
+}

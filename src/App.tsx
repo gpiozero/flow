@@ -77,9 +77,11 @@ import type { TrashedCanvas } from './persist';
 import { CanvasPicker } from './components/CanvasPicker';
 import { ExportPreviewModal } from './components/ExportPreviewModal';
 import { LiveModeModal } from './components/LiveModeModal';
+import { MobileNotice } from './components/MobileNotice';
 import { convertParams, convertTarget } from './convert';
 import { FlowContext } from './store';
 import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
+import { useIsMobile } from './useIsMobile';
 
 const nodeTypes = { device: DeviceNode };
 const edgeTypes = { wire: WireEdge };
@@ -139,6 +141,8 @@ interface ExportPreview {
 }
 
 function Editor() {
+  const isMobile = useIsMobile();
+
   // the current canvas survives reloads: restored once here, saved on
   // change below; the topbar picker switches between named canvases
   const [canvasName, setCanvasName] = useState(currentCanvasName);
@@ -967,6 +971,8 @@ function Editor() {
       ),
     [nodes, selectedId, selectedNode],
   );
+
+  if (isMobile) return <MobileNotice />;
 
   return (
     <FlowContext.Provider value={flowContext}>
