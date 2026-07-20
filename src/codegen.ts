@@ -84,6 +84,21 @@ export function toolCall(node: DeviceFlowNode, inputExprs: string[]): string {
 }
 
 /**
+ * Top-level module names the generated script imports — 'signal'
+ * always, plus 'gpiozero' and/or 'datetime' depending on the canvas.
+ * A downloaded script named after one of these would shadow the real
+ * module and break its own imports; used to warn against that.
+ */
+export function scriptModules(nodes: DeviceFlowNode[]): string[] {
+  const modules = ['signal'];
+  const deviceNodes = nodes.filter((n) => isDevice(n.data.kind));
+  if (deviceNodes.length) modules.push('gpiozero');
+  if (deviceNodes.some((n) => SPECS[n.data.kind].params.some((p) => p.type === 'time')))
+    modules.push('datetime');
+  return modules;
+}
+
+/**
  * Full gpiozero script for the canvas: imports, every device's
  * constructor (plus source_delay attrs), and each wired device's
  * `.source =` assignment. Anonymous tool/source nodes have no variable

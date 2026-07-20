@@ -8,6 +8,8 @@ interface Props {
   /** e.g. '.py' — included verbatim in the downloaded filename */
   extension: string;
   mimeType: string;
+  /** module names the filename mustn't collide with (e.g. a .py script's own imports) */
+  reservedNames?: string[];
   onClose: () => void;
 }
 
@@ -18,13 +20,17 @@ export function ExportPreviewModal({
   defaultFilename,
   extension,
   mimeType,
+  reservedNames,
   onClose,
 }: Props) {
   const [filename, setFilename] = useState(defaultFilename);
 
+  const escapedExtension = extension.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const stem = filename.trim().replace(new RegExp(`${escapedExtension}$`, 'i'), '') || defaultFilename;
+  // a script named e.g. gpiozero.py shadows the real module, breaking its own import
+  const collision = reservedNames?.find((m) => m.toLowerCase() === stem.toLowerCase());
+
   const onDownload = () => {
-    const escaped = extension.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const stem = filename.trim().replace(new RegExp(`${escaped}$`, 'i'), '') || defaultFilename;
     const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -46,6 +52,12 @@ export function ExportPreviewModal({
         <pre className="config-code modal-code">
           <code>{content}</code>
         </pre>
+        {collision && (
+          <p className="modal-warning">
+            "{stem}{extension}" would shadow the <code>{collision}</code> module this script
+            imports — its own import would fail. Choose a different name.
+          </p>
+        )}
         <div className="modal-actions">
           <label className="modal-filename">
             <input
@@ -56,7 +68,7 @@ export function ExportPreviewModal({
             />
             <span>{extension}</span>
           </label>
-          <button className="modal-download" onClick={onDownload}>
+          <button className="modal-download" onClick={onDownload} disabled={!!collision}>
             Download {extension}
           </button>
         </div>

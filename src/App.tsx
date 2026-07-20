@@ -25,7 +25,7 @@ import { DeviceNode } from './components/DeviceNode';
 import { HostCombo } from './components/HostCombo';
 import { BOARD_MIME, DRAG_MIME, Sidebar } from './components/Sidebar';
 import { WireEdge } from './components/WireEdge';
-import { generateScript } from './codegen';
+import { generateScript, scriptModules } from './codegen';
 import {
   PIN_ASSIGN_ORDER,
   SPECS,
@@ -133,6 +133,8 @@ interface ExportPreview {
   defaultFilename: string;
   extension: string;
   mimeType: string;
+  /** module names a filename mustn't collide with, e.g. ['signal', 'gpiozero'] for a .py export */
+  reservedNames?: string[];
 }
 
 function Editor() {
@@ -802,6 +804,7 @@ function Editor() {
       defaultFilename: sanitizeFilename(canvasName),
       extension: '.py',
       mimeType: 'text/x-python',
+      reservedNames: scriptModules(nodes),
     });
   }, [nodes, edges, numbering, canvasName]);
 
@@ -1072,6 +1075,7 @@ function Editor() {
             defaultFilename={exportPreview.defaultFilename}
             extension={exportPreview.extension}
             mimeType={exportPreview.mimeType}
+            reservedNames={exportPreview.reservedNames}
             onClose={() => setExportPreview(null)}
           />
         )}

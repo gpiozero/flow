@@ -721,6 +721,20 @@ body {
   overflow: auto;
 }
 
+.modal-warning {
+  margin: 10px 0 0;
+  padding: 6px 10px;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 12px;
+}
+
+.modal-warning code {
+  font-family: ui-monospace, 'Cascadia Mono', monospace;
+}
+
 .modal-actions {
   display: flex;
   align-items: center;
@@ -758,8 +772,13 @@ body {
   cursor: pointer;
 }
 
-.modal-download:hover {
+.modal-download:hover:not(:disabled) {
   filter: brightness(1.08);
+}
+
+.modal-download:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .workspace {
