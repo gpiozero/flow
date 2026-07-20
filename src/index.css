@@ -641,7 +641,10 @@ body {
   text-overflow: ellipsis;
 }
 
-.combo-option-delete {
+/* .canvas-switcher-menu prefix (not just .combo-option-delete) to
+   outweigh ".canvas-picker button"'s border, which otherwise wins on
+   specificity despite border: none here */
+.canvas-switcher-menu .combo-option-delete {
   flex-shrink: 0;
   padding: 0 4px;
   border: none;
@@ -658,7 +661,7 @@ body {
   visibility: visible;
 }
 
-.combo-option-delete:hover {
+.canvas-switcher-menu button.combo-option-delete:hover {
   background: #fef2f2;
   color: #dc2626;
 }
