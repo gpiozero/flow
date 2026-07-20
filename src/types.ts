@@ -36,6 +36,7 @@ export type NodeKind =
   | 'ledboard'
   | 'buttonboard'
   | 'robot'
+  | 'phaseenablerobot'
   | 'cputemperature'
   | 'loadaverage'
   | 'diskusage'

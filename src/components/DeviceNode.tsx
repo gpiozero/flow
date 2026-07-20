@@ -460,6 +460,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
       case 'phaseenablemotor':
         return <MotorWheel speed={value} />;
       case 'robot':
+      case 'phaseenablerobot':
         return (
           <div className="robot">
             <MotorWheel speed={channel(0)} small />
@@ -619,6 +620,8 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         return `${data.params.host}`;
       case 'robot':
         return `pins ${pin(data.params.left_forward)}/${pin(data.params.left_backward)}, ${pin(data.params.right_forward)}/${pin(data.params.right_backward)}`;
+      case 'phaseenablerobot':
+        return `pins ${pin(data.params.left_phase)}/${pin(data.params.left_enable)}, ${pin(data.params.right_phase)}/${pin(data.params.right_enable)}`;
       case 'rgbled':
         return `pins ${pin(data.params.red)}/${pin(data.params.green)}/${pin(data.params.blue)}`;
       case 'trafficlights':

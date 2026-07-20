@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { NAME_PATTERN, SPECS, docsUrl, requiredPinParams, valueSummary } from '../catalog';
+import { NAME_PATTERN, SPECS, deviceClassName, docsUrl, requiredPinParams, valueSummary } from '../catalog';
 import { pinDisplay, pinOptions } from '../pins';
 import { splitLabel } from '../split';
 import { convertTarget } from '../convert';
@@ -86,11 +86,11 @@ export function ConfigPanel({
 
   return (
     <aside className="config-panel">
-      <h2>{spec.label}</h2>
+      <h2>{deviceClassName(node.data.kind, node.data.params)}</h2>
       <p className="config-desc">{spec.description}</p>
       <a
         className="config-docs-link"
-        href={docsUrl(node.data.kind)}
+        href={docsUrl(node.data.kind, node.data.params)}
         target="_blank"
         rel="noopener noreferrer"
       >

@@ -49,6 +49,7 @@ export const BOARDS: Record<string, BoardSpec> = {
     id: 'trafficphat',
     label: 'Traffic pHAT',
     description: 'Ryanteck: traffic lights on a pHAT',
+    // matches gpiozero's TrafficpHat fixed wiring — see FIXED_PIN_BOARD_PRESETS in catalog.ts
     components: [
       { kind: 'trafficlights', name: 'lights', params: { red: 25, amber: 24, green: 23 }, offset: { x: 0, y: 0 } },
     ],
@@ -57,6 +58,7 @@ export const BOARDS: Record<string, BoardSpec> = {
     id: 'pitraffic',
     label: 'Pi-Traffic',
     description: 'Low Voltage Labs: traffic lights',
+    // matches gpiozero's PiTraffic fixed wiring — see FIXED_PIN_BOARD_PRESETS in catalog.ts
     components: [
       { kind: 'trafficlights', name: 'lights', params: { red: 9, amber: 10, green: 11 }, offset: { x: 0, y: 0 } },
     ],
@@ -97,6 +99,7 @@ export const BOARDS: Record<string, BoardSpec> = {
     id: 'ledborg',
     label: 'LedBorg',
     description: 'PiBorg: a single RGB LED',
+    // matches gpiozero's LedBorg fixed wiring — see FIXED_PIN_BOARD_PRESETS in catalog.ts
     components: [
       { kind: 'rgbled', name: 'ledborg', params: { red: 17, green: 27, blue: 22 }, offset: { x: 0, y: 0 } },
     ],
@@ -110,7 +113,9 @@ export const BOARDS: Record<string, BoardSpec> = {
         kind: 'ledboard',
         name: 'piliter',
         // _barStyle/_color: visual only, matching the real board's
-        // yellowish-white LEDs and the piliterbargraph board's look
+        // yellowish-white LEDs and the piliterbargraph board's look.
+        // The pins match gpiozero's PiLiter fixed wiring — see
+        // FIXED_PIN_BOARD_PRESETS in catalog.ts.
         params: {
           leds: 8,
           pin1: 4,
@@ -132,6 +137,7 @@ export const BOARDS: Record<string, BoardSpec> = {
     id: 'piliterbargraph',
     label: 'Pi-LITEr (bar graph)',
     description: 'Ciseco Pi-LITEr as an 8-LED bar graph',
+    // matches gpiozero's PiLiterBarGraph fixed wiring — see FIXED_PIN_BOARD_PRESETS in catalog.ts
     components: [
       {
         kind: 'ledbargraph',
@@ -255,6 +261,9 @@ export const BOARDS: Record<string, BoardSpec> = {
     id: 'ryanteckrobot',
     label: 'Ryanteck MCB Robot',
     description: 'Ryanteck motor controller board as a Robot',
+    // These exact pins match gpiozero's RyanteckRobot fixed wiring —
+    // FIXED_PIN_BOARD_PRESETS in catalog.ts recognises them and generates
+    // RyanteckRobot() with no pin args, same idea as Pololu below.
     components: [
       {
         kind: 'robot',
@@ -268,6 +277,8 @@ export const BOARDS: Record<string, BoardSpec> = {
     id: 'camjamkitrobot',
     label: 'CamJam #3 Robot',
     description: 'CamJam EduKit 3 motor controller as a Robot',
+    // These exact pins match gpiozero's CamJamKitRobot fixed wiring —
+    // recognised the same way as RyanteckRobot/PololuDRV8835Robot.
     components: [
       {
         kind: 'robot',
@@ -280,10 +291,18 @@ export const BOARDS: Record<string, BoardSpec> = {
   pololudrv8835: {
     id: 'pololudrv8835',
     label: 'Pololu DRV8835',
-    description: 'Pololu DRV8835 kit: two phase/enable motors',
+    description: 'Pololu DRV8835 kit, as a Robot',
+    // One phaseenablerobot node, not two motors — these exact pins are
+    // gpiozero's PololuDRV8835Robot's own fixed wiring, which codegen
+    // recognises and generates as PololuDRV8835Robot() with no pin args;
+    // see FIXED_PIN_BOARD_PRESETS in catalog.ts (also covers Ryanteck/CamJam below).
     components: [
-      { kind: 'phaseenablemotor', name: 'motor_left', params: { phase: 5, enable: 12 }, offset: { x: 0, y: 0 } },
-      { kind: 'phaseenablemotor', name: 'motor_right', params: { phase: 6, enable: 13 }, offset: { x: 0, y: 160 } },
+      {
+        kind: 'phaseenablerobot',
+        name: 'robot',
+        params: { left_phase: 5, left_enable: 12, right_phase: 6, right_enable: 13 },
+        offset: { x: 0, y: 0 },
+      },
     ],
   },
 };

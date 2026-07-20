@@ -417,6 +417,27 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
       { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
     ],
   },
+  phaseenablerobot: {
+    kind: 'phaseenablerobot',
+    label: 'PhaseEnableRobot',
+    section: 'outputs',
+    description: 'Dual-motor robot via phase/enable drivers, (left, right) speed tuples',
+    valueKind: 'float',
+    hasInput: true,
+    hasOutput: true,
+    inputShape: 'tuple',
+    outputShape: 'tuple',
+    // the pins are omitted from the generic codegen: deviceConstructor
+    // renders them as PhaseEnableRobot(left=(...), right=(...)) — or,
+    // when they match the Pololu DRV8835 kit exactly, PololuDRV8835Robot()
+    params: [
+      { name: 'left_phase', label: 'left_phase', type: 'pin', default: 16, omit: true },
+      { name: 'left_enable', label: 'left_enable', type: 'pin', default: 20, omit: true },
+      { name: 'right_phase', label: 'right_phase', type: 'pin', default: 21, omit: true },
+      { name: 'right_enable', label: 'right_enable', type: 'pin', default: 26, omit: true },
+      { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
+    ],
+  },
   rgbled: {
     kind: 'rgbled',
     label: 'RGBLED',
@@ -864,6 +885,7 @@ export function valueSummary(
         meaning: 'speed: -1 = full backward, 0 = stopped, 1 = full forward',
       };
     case 'robot':
+    case 'phaseenablerobot':
       return {
         channels: ['left', 'right'],
         range: FULL,
@@ -954,6 +976,7 @@ export const SECTIONS: { id: Section; title: string; kinds: NodeKind[] }[] = [
       'motor',
       'phaseenablemotor',
       'robot',
+      'phaseenablerobot',
       'energenie',
       'ledbargraph',
       'ledboard',
@@ -1124,6 +1147,7 @@ const DOCS_PAGE: Record<NodeKind, string> = {
   ledbargraph: 'api_boards',
   ledboard: 'api_boards',
   robot: 'api_boards',
+  phaseenablerobot: 'api_boards',
   rgbled: 'api_output',
   trafficlights: 'api_boards',
   negated: 'api_tools',
@@ -1164,10 +1188,99 @@ const DOCS_LABEL_OVERRIDE: Partial<Record<NodeKind, string>> = {
   scaled_half: 'scaled',
 };
 
+/**
+ * gpiozero boards that are just a generic device on fixed pins, with a
+ * dedicated subclass wrapping them so pins needn't be specified
+ * (RyanteckRobot, LedBorg, PiTraffic, ...) — every one of these takes
+ * no pin args at all, wiring being hardcoded in its own __init__.
+ * Matched against a node's params to tell whether it happens to be
+ * wired exactly like one of these, in which case codegen, the config
+ * panel title, and the docs link should all name the specific
+ * subclass rather than the generic class it's built from.
+ *
+ * extraGuard covers params the dedicated subclass can't override at
+ * all (e.g. LedBorg has no active_high argument) — without it, using
+ * the subclass name would silently drop a non-default setting.
+ */
+const FIXED_PIN_BOARD_PRESETS: {
+  kind: NodeKind;
+  className: string;
+  pins: Record<string, number>;
+  extraGuard?: (params: Record<string, ParamValue>) => boolean;
+}[] = [
+  {
+    kind: 'robot',
+    className: 'RyanteckRobot',
+    pins: { left_forward: 17, left_backward: 18, right_forward: 22, right_backward: 23 },
+  },
+  {
+    kind: 'robot',
+    className: 'CamJamKitRobot',
+    pins: { left_forward: 9, left_backward: 10, right_forward: 7, right_backward: 8 },
+  },
+  {
+    kind: 'phaseenablerobot',
+    className: 'PololuDRV8835Robot',
+    pins: { left_phase: 5, left_enable: 12, right_phase: 6, right_enable: 13 },
+  },
+  {
+    kind: 'rgbled',
+    className: 'LedBorg',
+    pins: { red: 17, green: 27, blue: 22 },
+    extraGuard: (params) => params.active_high !== false,
+  },
+  { kind: 'trafficlights', className: 'PiTraffic', pins: { red: 9, amber: 10, green: 11 } },
+  { kind: 'trafficlights', className: 'TrafficpHat', pins: { red: 25, amber: 24, green: 23 } },
+  {
+    kind: 'ledboard',
+    className: 'PiLiter',
+    pins: { leds: 8, pin1: 4, pin2: 17, pin3: 27, pin4: 18, pin5: 22, pin6: 23, pin7: 24, pin8: 25 },
+  },
+  {
+    kind: 'ledbargraph',
+    className: 'PiLiterBarGraph',
+    pins: { leds: 8, pin1: 4, pin2: 17, pin3: 27, pin4: 18, pin5: 22, pin6: 23, pin7: 24, pin8: 25 },
+  },
+];
+
+function boardPreset(kind: NodeKind, params: Record<string, ParamValue>) {
+  return FIXED_PIN_BOARD_PRESETS.find(
+    (preset) =>
+      preset.kind === kind &&
+      Object.entries(preset.pins).every(([key, value]) => Number(params[key]) === value) &&
+      (preset.extraGuard?.(params) ?? true),
+  );
+}
+
+/** Whether this node's pins (and any params its dedicated class can't override) match a known fixed-pin board exactly */
+export function isFixedPinBoard(kind: NodeKind, params: Record<string, ParamValue>): boolean {
+  return boardPreset(kind, params) !== undefined;
+}
+
+/**
+ * The real gpiozero class/function this node constructs — usually just
+ * spec.label, but robot/phaseenablerobot construct plain Robot (or
+ * PhaseEnableRobot) and some devices' pins happen to match a known
+ * fixed-pin board exactly (see FIXED_PIN_BOARD_PRESETS), in which case
+ * that more specific subclass — e.g. CamJamKitRobot, LedBorg — is the
+ * correct one. Used for the config panel title, codegen, and (via
+ * docsUrl) the docs link, so all three always agree on which real
+ * class a node currently represents.
+ */
+export function deviceClassName(kind: NodeKind, params: Record<string, ParamValue> = {}): string {
+  const preset = boardPreset(kind, params);
+  if (preset) return preset.className;
+  if (kind === 'phaseenablerobot') return 'PhaseEnableRobot';
+  return SPECS[kind].label;
+}
+
 /** Direct link to this kind's class or function in the gpiozero docs (stable) */
-export function docsUrl(kind: NodeKind): string {
-  const page = DOCS_PAGE[kind];
-  const label = DOCS_LABEL_OVERRIDE[kind] ?? SPECS[kind].label;
+export function docsUrl(kind: NodeKind, params: Record<string, ParamValue> = {}): string {
+  // every FIXED_PIN_BOARD_PRESETS subclass lives on the boards docs
+  // page, even when the generic class it's built from (e.g. RGBLED)
+  // doesn't
+  const page = boardPreset(kind, params) ? 'api_boards' : DOCS_PAGE[kind];
+  const label = DOCS_LABEL_OVERRIDE[kind] ?? deviceClassName(kind, params);
   const anchor = page === 'api_tools' ? `gpiozero.tools.${label}` : `gpiozero.${label}`;
   return `https://gpiozero.readthedocs.io/en/stable/${page}.html#${anchor}`;
 }

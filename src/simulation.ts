@@ -258,7 +258,8 @@ function nodeValue(
       const v = readSource(node, rawInputs[0], sourceIds[0], byId, sim, advance);
       return channels(v, 3).map((c) => (params.pwm ? clamp(c, 0, 1) : c !== 0 ? 1 : 0));
     }
-    case 'robot': {
+    case 'robot':
+    case 'phaseenablerobot': {
       // (left, right) wheel speeds, each -1..1
       if (rawInputs.length === 0) return [0, 0];
       const v = readSource(node, rawInputs[0], sourceIds[0], byId, sim, advance);

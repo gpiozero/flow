@@ -1,5 +1,5 @@
 import type { Edge } from '@xyflow/react';
-import { SPECS, isDevice, requiredPinParams } from './catalog';
+import { SPECS, deviceClassName, isDevice, isFixedPinBoard, requiredPinParams } from './catalog';
 import { pyPin } from './pins';
 import type { PinNumbering } from './pins';
 import type { DeviceFlowNode, NodeKind, ParamSpec, ParamValue } from './types';
@@ -32,21 +32,31 @@ export function deviceConstructor(
   const varName = node.data.name ?? node.data.kind;
   const args: string[] = [];
   const attrs: string[] = [];
+  // Some devices' pins happen to match a known fixed-pin board exactly
+  // (RyanteckRobot, LedBorg, PiLiter, ... — see FIXED_PIN_BOARD_PRESETS
+  // in catalog.ts), whose dedicated gpiozero subclass takes no pin
+  // args at all, wiring being hardcoded in its own __init__ — so every
+  // pin arg below is skipped in that case, dynamic or not.
+  const fixedPinBoard = isFixedPinBoard(node.data.kind, params);
   // dynamic pin lists (LEDBarGraph's *pins) come first, positionally
-  if (spec.dynamicPins) {
+  if (spec.dynamicPins && !fixedPinBoard) {
     for (const key of requiredPinParams(node.data.kind, params)) {
       args.push(pyPin(params[key], numbering));
     }
   }
-  // Robot wraps its pins in two Motor instances; the pin params are
-  // marked omit so the generic loop below leaves them alone
-  if (node.data.kind === 'robot') {
+  // Robot wraps its pins in two Motor (or, for phaseenablerobot, bare
+  // pin-pair tuple) args; the pin params are marked omit so the generic
+  // loop below leaves them alone.
+  if (node.data.kind === 'robot' && !fixedPinBoard) {
     args.push(
       `left=Motor(${pyPin(params.left_forward, numbering)}, ${pyPin(params.left_backward, numbering)})`,
     );
     args.push(
       `right=Motor(${pyPin(params.right_forward, numbering)}, ${pyPin(params.right_backward, numbering)})`,
     );
+  } else if (node.data.kind === 'phaseenablerobot' && !fixedPinBoard) {
+    args.push(`left=(${pyPin(params.left_phase, numbering)}, ${pyPin(params.left_enable, numbering)})`);
+    args.push(`right=(${pyPin(params.right_phase, numbering)}, ${pyPin(params.right_enable, numbering)})`);
   }
   // a lone pin is idiomatic positionally (LED(17)); once there are
   // several, name them all so the reader needn't recall the order.
@@ -61,13 +71,15 @@ export function deviceConstructor(
       return;
     }
     const isPin = p.type === 'pin' || p.type === 'channel';
+    if (isPin && fixedPinBoard) return;
     if (i === 0 && pinCount <= 1 && p.type === 'pin') args.push(pyPin(value, numbering));
     else if (p.positional) {
       if (p.required || value !== p.default) args.push(pyParam(p, value, numbering));
     } else if (isPin || p.required || value !== p.default)
       args.push(`${p.name}=${pyParam(p, value, numbering)}`);
   });
-  return [`${varName} = ${spec.label}(${args.join(', ')})`, ...attrs].join('\n');
+  const className = deviceClassName(node.data.kind, params);
+  return [`${varName} = ${className}(${args.join(', ')})`, ...attrs].join('\n');
 }
 
 /** Anonymous tool/source call, e.g. `negated(button.values)`; inputExprs are its already-resolved sources. */
@@ -166,11 +178,19 @@ export function generateScript(
     for (const pred of incoming.get(n.id) ?? []) markUsed(pred);
   }
 
-  // Robot's constructor references Motor even without a Motor node
+  // A plain Robot's constructor references Motor even without a Motor
+  // node of its own — but not when it's really a fixed-pin board
+  // subclass (RyanteckRobot etc.), which takes no Motor args at all.
+  // robot/phaseenablerobot nodes import whatever deviceClassName says
+  // they actually construct, not their display label, and never need
+  // a separate PhaseEnableMotor import (PhaseEnableRobot/
+  // PololuDRV8835Robot both build their own wheels internally).
   const deviceImports = [
     ...new Set([
-      ...deviceNodes.map((n) => SPECS[n.data.kind].label),
-      ...(deviceNodes.some((n) => n.data.kind === 'robot') ? ['Motor'] : []),
+      ...deviceNodes.map((n) => deviceClassName(n.data.kind, n.data.params)),
+      ...(deviceNodes.some((n) => n.data.kind === 'robot' && !isFixedPinBoard('robot', n.data.params))
+        ? ['Motor']
+        : []),
     ]),
   ].sort();
   const toolImports = [...usedTools].map((k) => SPECS[k].label).sort();
