@@ -28,7 +28,7 @@ interface Props {
   exportLimit: number;
   /** import a canvas from pasted JSON; returns whether it was valid */
   onImport: (json: string) => boolean;
-  /** recently deleted canvases, most recent first; empty hides the trash button entirely */
+  /** recently deleted canvases, most recent first; the button stays visible, disabled, when empty */
   trash: TrashedCanvas[];
   onRestore: (name: string) => void;
 }
@@ -245,6 +245,42 @@ export function CanvasPicker({
         Delete
       </button>
       <div
+        className="combo canvas-trash"
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setTrashOpen(false);
+        }}
+      >
+        <button
+          className="canvas-trash-toggle"
+          onClick={() => setTrashOpen((o) => !o)}
+          title="Recently deleted canvases"
+          aria-label="Recently deleted canvases"
+          aria-expanded={trashOpen}
+          disabled={trash.length === 0}
+        >
+          Trash <span className="canvas-trash-count">{trash.length}</span>
+        </button>
+        {trashOpen && (
+          <ul className="combo-menu canvas-trash-menu" role="listbox">
+            {trash.map((t) => (
+              <li key={t.name}>
+                <span className="canvas-trash-name">{t.name}</span>
+                <span className="canvas-trash-age">{timeAgo(t.deletedAt)}</span>
+                <button
+                  className="canvas-trash-restore"
+                  onClick={() => {
+                    setTrashOpen(false);
+                    onRestore(t.name);
+                  }}
+                >
+                  Restore
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div
         className="combo canvas-export"
         onBlur={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setExportOpen(false);
@@ -277,10 +313,9 @@ export function CanvasPicker({
                   />
                   Include current state
                 </label>
-                <div className={`canvas-export-size${linkTooLarge ? ' over-limit' : ''}`}>
-                  {exportSize.toLocaleString()} / {exportLimit.toLocaleString()} characters
-                  {linkTooLarge && ' — too large to share'}
-                </div>
+                {linkTooLarge && (
+                  <div className="canvas-export-size over-limit">Too large to share via a link</div>
+                )}
                 <button
                   className="canvas-export-copy"
                   onClick={() => {
@@ -289,7 +324,7 @@ export function CanvasPicker({
                   }}
                   disabled={linkTooLarge}
                 >
-                  Copy link
+                  Copy sharing link
                 </button>
               </>
             )}
@@ -389,43 +424,6 @@ export function CanvasPicker({
           </div>
         )}
       </div>
-      {trash.length > 0 && (
-        <div
-          className="combo canvas-trash"
-          onBlur={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setTrashOpen(false);
-          }}
-        >
-          <button
-            className="canvas-trash-toggle"
-            onClick={() => setTrashOpen((o) => !o)}
-            title="Recently deleted canvases"
-            aria-label="Recently deleted canvases"
-            aria-expanded={trashOpen}
-          >
-            Trash <span className="canvas-trash-count">{trash.length}</span>
-          </button>
-          {trashOpen && (
-            <ul className="combo-menu canvas-trash-menu" role="listbox">
-              {trash.map((t) => (
-                <li key={t.name}>
-                  <span className="canvas-trash-name">{t.name}</span>
-                  <span className="canvas-trash-age">{timeAgo(t.deletedAt)}</span>
-                  <button
-                    className="canvas-trash-restore"
-                    onClick={() => {
-                      setTrashOpen(false);
-                      onRestore(t.name);
-                    }}
-                  >
-                    Restore
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
     </div>
   );
 }

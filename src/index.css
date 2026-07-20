@@ -107,7 +107,7 @@ body {
   cursor: pointer;
 }
 
-.canvas-trash-toggle:hover {
+.canvas-trash-toggle:hover:not(:disabled) {
   background: var(--c-panel);
   color: var(--c-text);
 }
