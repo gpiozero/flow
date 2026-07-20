@@ -103,14 +103,27 @@ export function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <input
-        type="search"
-        className="sidebar-search"
-        placeholder="Search…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        aria-label="Search"
-      />
+      <div className="sidebar-search-wrap">
+        <input
+          type="search"
+          className="sidebar-search"
+          placeholder="Search…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="Search"
+        />
+        {query && (
+          <button
+            type="button"
+            className="sidebar-search-clear"
+            onClick={() => setQuery('')}
+            title="Clear search"
+            aria-label="Clear search"
+          >
+            ×
+          </button>
+        )}
+      </div>
       {needle && visibleSections.length === 0 ? (
         <p className="sidebar-hint">No devices match "{query.trim()}".</p>
       ) : (
