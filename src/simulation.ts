@@ -21,6 +21,8 @@ export interface SimState {
   origins: Map<string, number>;
   /** last value a delayed/filtered tool sampled or passed */
   heldValues: Map<string, number>;
+  /** per-consumer count of fresh samples taken from a pull-based tool source (see pullBasedValue) */
+  pullCounts: Map<string, number>;
 }
 
 /** Seconds per simulation clock step */
@@ -35,6 +37,7 @@ export function createSimState(): SimState {
     booleanizedStates: new Map(),
     origins: new Map(),
     heldValues: new Map(),
+    pullCounts: new Map(),
   };
 }
 
@@ -77,8 +80,9 @@ export function computeValues(
   const queue = nodes.filter((n) => indegree.get(n.id) === 0).map((n) => n.id);
   while (queue.length) {
     const id = queue.shift()!;
-    const inputs = incoming.get(id)!.map((s) => values[s] ?? 0);
-    values[id] = nodeValue(byId.get(id)!, inputs, sim, advance);
+    const sourceIds = incoming.get(id)!;
+    const inputs = sourceIds.map((s) => values[s] ?? 0);
+    values[id] = nodeValue(byId.get(id)!, inputs, sourceIds, byId, sim, advance);
     for (const t of outgoing.get(id)!) {
       const d = indegree.get(t)! - 1;
       indegree.set(t, d);
@@ -108,6 +112,9 @@ export function computeValues(
   for (const id of [...sim.heldValues.keys()]) {
     if (!byId.has(id)) sim.heldValues.delete(id);
   }
+  for (const id of [...sim.pullCounts.keys()]) {
+    if (!byId.has(id)) sim.pullCounts.delete(id);
+  }
 
   return values;
 }
@@ -115,6 +122,8 @@ export function computeValues(
 function nodeValue(
   node: DeviceFlowNode,
   rawInputs: SimValue[],
+  sourceIds: string[],
+  byId: Map<string, DeviceFlowNode>,
   sim: SimState,
   advance: boolean,
 ): SimValue {
@@ -181,23 +190,23 @@ function nodeValue(
     case 'energenie':
       // value is boolean: any truthy (nonzero) source value turns it on
       if (inputs.length === 0) return params.initial_value ? 1 : 0;
-      return toNumber(readSource(node, inputs[0], sim, advance)) !== 0 ? 1 : 0;
+      return toNumber(readSource(node, inputs[0], sourceIds[0], byId, sim, advance)) !== 0 ? 1 : 0;
     case 'pwmled':
       if (inputs.length === 0) return clamp(Number(params.initial_value ?? 0), 0, 1);
-      return clamp(toNumber(readSource(node, inputs[0], sim, advance)), 0, 1);
+      return clamp(toNumber(readSource(node, inputs[0], sourceIds[0], byId, sim, advance)), 0, 1);
     case 'tonalbuzzer':
       // silent without a source (gpiozero's value None, shown as NaN
       // here); driven, 0 is the mid tone and ±1 the octave extremes
       if (inputs.length === 0) return NaN;
-      return clamp(toNumber(readSource(node, inputs[0], sim, advance)), -1, 1);
+      return clamp(toNumber(readSource(node, inputs[0], sourceIds[0], byId, sim, advance)), -1, 1);
     case 'servo':
       if (inputs.length === 0) return clamp(Number(params.initial_value ?? 0), -1, 1);
-      return clamp(toNumber(readSource(node, inputs[0], sim, advance)), -1, 1);
+      return clamp(toNumber(readSource(node, inputs[0], sourceIds[0], byId, sim, advance)), -1, 1);
     case 'ledbargraph': {
       const v =
         inputs.length === 0
           ? clamp(Number(params.initial_value ?? 0), -1, 1)
-          : clamp(toNumber(readSource(node, inputs[0], sim, advance)), -1, 1);
+          : clamp(toNumber(readSource(node, inputs[0], sourceIds[0], byId, sim, advance)), -1, 1);
       if (params.pwm) return v;
       // non-PWM value reads back as lit/total, as in gpiozero (an LED
       // only lights when the value fully covers it)
@@ -212,17 +221,17 @@ function nodeValue(
         if (angularRange === 0) return 0;
         return clamp((2 * (Number(params.initial_angle) - minAngle)) / angularRange - 1, -1, 1);
       }
-      return clamp(toNumber(readSource(node, inputs[0], sim, advance)), -1, 1);
+      return clamp(toNumber(readSource(node, inputs[0], sourceIds[0], byId, sim, advance)), -1, 1);
     }
     case 'motor':
     case 'phaseenablemotor':
       if (inputs.length === 0) return 0;
-      return clamp(toNumber(readSource(node, inputs[0], sim, advance)), -1, 1);
+      return clamp(toNumber(readSource(node, inputs[0], sourceIds[0], byId, sim, advance)), -1, 1);
     case 'rgbled': {
       // pwm=False swaps the PWMLEDs for plain LEDs: truthy channels
       // snap to full, limiting the mix to the 8 primary/secondary colours
       if (rawInputs.length === 0) return [0, 0, 0];
-      const v = readSource(node, rawInputs[0], sim, advance);
+      const v = readSource(node, rawInputs[0], sourceIds[0], byId, sim, advance);
       return channels(v, 3).map((c) => (params.pwm ? clamp(c, 0, 1) : c !== 0 ? 1 : 0));
     }
     case 'ledboard': {
@@ -230,20 +239,20 @@ function nodeValue(
       // initial_value sets the whole bank
       const n = dynamicPinCount(kind, params);
       if (rawInputs.length === 0) return Array(n).fill(params.initial_value ? 1 : 0);
-      const v = readSource(node, rawInputs[0], sim, advance);
+      const v = readSource(node, rawInputs[0], sourceIds[0], byId, sim, advance);
       return channels(v, n).map((c) => (params.pwm ? clamp(c, 0, 1) : c !== 0 ? 1 : 0));
     }
     case 'trafficlights': {
       // boolean LEDs: any truthy channel value lights that lamp;
       // with pwm=True the lamps are PWMLEDs and dim fractionally
       if (rawInputs.length === 0) return [0, 0, 0];
-      const v = readSource(node, rawInputs[0], sim, advance);
+      const v = readSource(node, rawInputs[0], sourceIds[0], byId, sim, advance);
       return channels(v, 3).map((c) => (params.pwm ? clamp(c, 0, 1) : c !== 0 ? 1 : 0));
     }
     case 'robot': {
       // (left, right) wheel speeds, each -1..1
       if (rawInputs.length === 0) return [0, 0];
-      const v = readSource(node, rawInputs[0], sim, advance);
+      const v = readSource(node, rawInputs[0], sourceIds[0], byId, sim, advance);
       return channels(v, 2).map((c) => clamp(c, -1, 1));
     }
     case 'zip_values':
@@ -403,22 +412,65 @@ function nodeValue(
  * to one clock tick pass values straight through (the gpiozero default
  * of 0.01s is faster than the simulation can resolve); longer delays
  * hold the last sampled value until the delay has elapsed on the clock.
+ * When a fresh sample is due and the source is a pull-based tool (see
+ * pullBasedValue), its value is recomputed from this consumer's own
+ * pull count rather than read straight off the shared tick-based value.
  */
 function readSource(
   node: DeviceFlowNode,
   input: SimValue,
+  sourceId: string | undefined,
+  byId: Map<string, DeviceFlowNode>,
   sim: SimState,
   advance: boolean,
 ): SimValue {
   const delaySteps = Math.round(Number(node.data.params.source_delay ?? 0) / TICK_SECONDS);
   if (delaySteps <= 1) {
     sim.sourceSamples.delete(node.id);
+    sim.pullCounts.delete(node.id);
     return input;
   }
   const last = sim.sourceSamples.get(node.id);
   if (last && !(advance && sim.step - last.step >= delaySteps)) return last.value;
-  sim.sourceSamples.set(node.id, { step: sim.step, value: input });
-  return input;
+
+  const pullCount = (sim.pullCounts.get(node.id) ?? -1) + 1;
+  sim.pullCounts.set(node.id, pullCount);
+  const source = sourceId ? byId.get(sourceId) : undefined;
+  const value = source ? pullBasedValue(source, pullCount, input) : input;
+  sim.sourceSamples.set(node.id, { step: sim.step, value });
+  return value;
+}
+
+/**
+ * gpiozero's generator-style tools (alternating_values, sin/cos_values,
+ * ramping_values) have no clock of their own — they advance exactly
+ * once per pull by the consuming device's background thread, and
+ * source_delay governs pull rate. Recomputing from this consumer's own
+ * pull count (rather than reusing the shared tick-based value from
+ * nodeValue) avoids aliasing: sampled every 10 ticks, alternating_values'
+ * 2-tick toggle would otherwise always land on the same phase and never
+ * appear to flip. Non-tool sources (devices, combiners) keep the raw
+ * tick-based value, since it already reflects real device/wire state.
+ */
+function pullBasedValue(source: DeviceFlowNode, pullCount: number, fallback: SimValue): SimValue {
+  const { kind, params } = source.data;
+  switch (kind) {
+    case 'alternating_values': {
+      const base = params.initial_value ? 1 : 0;
+      return pullCount % 2 === 0 ? base : 1 - base;
+    }
+    case 'sin_values':
+      return Math.sin((2 * Math.PI * pullCount) / periodOf(params.period));
+    case 'cos_values':
+      return Math.cos((2 * Math.PI * pullCount) / periodOf(params.period));
+    case 'ramping_values': {
+      const period = periodOf(params.period);
+      const pos = pullCount % period;
+      return pos < period / 2 ? (pos * 2) / period : 2 - (pos * 2) / period;
+    }
+    default:
+      return fallback;
+  }
 }
 
 /**
@@ -433,6 +485,7 @@ export function resetNodeState(sim: SimState, id: string): void {
   sim.booleanizedStates.delete(id);
   sim.origins.delete(id);
   sim.heldValues.delete(id);
+  sim.pullCounts.delete(id);
 }
 
 /** Ticks since the node first appeared, anchoring its delay/filter phase */
