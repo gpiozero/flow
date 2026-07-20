@@ -660,9 +660,9 @@ function Editor() {
     [setNodes],
   );
 
-  // Clearing empties the saved canvas too — it's unrecoverable: confirm.
+  // Clearing empties the saved canvas too — it's unrecoverable, so
+  // CanvasPicker confirms with its own popover before calling this.
   const clearCanvas = useCallback(() => {
-    if (!window.confirm('Clear the canvas? All nodes and wires will be removed.')) return;
     setNodes([]);
     setEdges([]);
     setSelectedId(null);

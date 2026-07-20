@@ -78,6 +78,7 @@ export function CanvasPicker({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const [trashOpen, setTrashOpen] = useState(false);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   // configuration only by default — the more portable, more shareable option
   const [includeState, setIncludeState] = useState(false);
@@ -278,14 +279,39 @@ export function CanvasPicker({
       <button onClick={createNew} title="Create a new empty canvas">
         New
       </button>
-      <button
-        className="canvas-clear"
-        onClick={onClear}
-        title="Remove every node and wire from this canvas"
-        disabled={clearDisabled}
+      <div
+        className="combo canvas-clear-combo"
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setClearConfirmOpen(false);
+        }}
       >
-        Clear
-      </button>
+        <button
+          className="canvas-clear"
+          onClick={() => setClearConfirmOpen((o) => !o)}
+          title="Remove every node and wire from this canvas"
+          disabled={clearDisabled}
+          aria-expanded={clearConfirmOpen}
+        >
+          Clear
+        </button>
+        {clearConfirmOpen && (
+          <div className="combo-menu canvas-clear-confirm" role="menu">
+            <p>Clear the canvas? All nodes and wires will be removed.</p>
+            <div className="canvas-clear-confirm-actions">
+              <button onClick={() => setClearConfirmOpen(false)}>Cancel</button>
+              <button
+                className="canvas-clear-confirm-yes"
+                onClick={() => {
+                  setClearConfirmOpen(false);
+                  onClear();
+                }}
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
       <button onClick={onDelete} title="Delete this canvas" disabled={deleteDisabled}>
         Delete
       </button>

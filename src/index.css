@@ -205,6 +205,51 @@ body {
   position: relative;
 }
 
+.canvas-clear-confirm {
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.canvas-clear-confirm p {
+  margin: 0;
+  padding: 2px 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--c-text);
+  white-space: normal;
+}
+
+.canvas-clear-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.canvas-clear-confirm-actions button {
+  padding: 5px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: 4px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.canvas-clear-confirm-actions button:hover {
+  background: var(--c-panel);
+}
+
+.canvas-clear-confirm-actions button.canvas-clear-confirm-yes {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.canvas-clear-confirm-actions button.canvas-clear-confirm-yes:hover {
+  background: #fef2f2;
+}
+
 .canvas-export-toggle {
   padding: 5px 8px;
   border: 1px solid var(--c-border);
