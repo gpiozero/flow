@@ -328,6 +328,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         // a BS 1363 plug face: earth pin up top, live/neutral below
         return (
           <div className={`uk-plug${value > 0 ? ' on' : ''}`}>
+            <span className="plug-light" />
             <span className="plug-pin earth" />
             <span className="plug-pin live" />
             <span className="plug-pin neutral" />
