@@ -53,7 +53,7 @@ export default function Landing() {
           <span className="brand-led" aria-hidden="true" />
           gpiozero flow
         </div>
-        <a className="landing-nav-link" href="/app">
+        <a className="landing-nav-link" href="/app/">
           Open the app
         </a>
       </header>
@@ -67,7 +67,7 @@ export default function Landing() {
         <p className="landing-subtitle">
           Drag components onto a canvas and connect them up with no code. Flow runs in the browser, and can connect to a Raspberry Pi to control real GPIO devices remotely.
         </p>
-        <a className="landing-cta" href="/app">
+        <a className="landing-cta" href="/app/">
           Start building →
         </a>
       </main>

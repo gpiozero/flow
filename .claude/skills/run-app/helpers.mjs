@@ -2,7 +2,7 @@
 // See SKILL.md for why each works the way it does.
 import { chromium } from 'playwright';
 
-const URL = process.env.APP_URL ?? 'http://localhost:5173/';
+const URL = process.env.APP_URL ?? 'http://localhost:5173/app/';
 
 export async function launch() {
   const browser = await chromium.launch({ channel: 'chrome' });
