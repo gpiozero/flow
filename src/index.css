@@ -1978,7 +1978,11 @@ body {
   accent-color: var(--c-inputs);
 }
 
-.react-flow__handle {
+/* .react-flow prefix bumps specificity above @xyflow/react's own
+   .react-flow__handle rule — Vite's build splits that library
+   stylesheet into a chunk that can load after this one, and at equal
+   specificity the later rule wins regardless of source order here. */
+.react-flow .react-flow__handle {
   width: 14px;
   height: 14px;
   background: #64748b;
