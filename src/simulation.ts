@@ -135,10 +135,19 @@ function nodeValue(
       return state.pressed ? 1 : 0;
     case 'lightsensor':
     case 'distancesensor':
-    case 'cputemperature':
     case 'loadaverage':
     case 'diskusage':
       return clamp(Number(state.level ?? 0), 0, 1);
+    case 'cputemperature': {
+      // state.level is the simulated reading in °C; gpiozero computes
+      // value as (temperature - min_temp) / (max_temp - min_temp) with
+      // no clamping, so a reading outside min_temp..max_temp legitimately
+      // produces a value outside 0..1
+      const minTemp = Number(params.min_temp);
+      const range = Number(params.max_temp) - minTemp;
+      if (range === 0) return 0;
+      return (Number(state.level ?? 0) - minTemp) / range;
+    }
     case 'mcp3008':
     case 'mcp3001':
     case 'mcp3002':

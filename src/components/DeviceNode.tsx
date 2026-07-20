@@ -202,15 +202,17 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
       case 'loadaverage':
       case 'diskusage': {
         const level = Number(data.state.level ?? 0);
-        // signed ADCs (MCP33xx in differential mode) slide -1..1
+        // signed ADCs (MCP33xx in differential mode) slide -1..1; CPU
+        // temperature slides in °C, not a pre-scaled 0..1 fraction
         const min = spec.section === 'adc' ? adcMin(data.kind, data.params) : 0;
+        const max = data.kind === 'cputemperature' ? 100 : 1;
         const slider = (
           <input
             type="range"
             className="nodrag"
             min={min}
-            max={1}
-            step={0.01}
+            max={max}
+            step={data.kind === 'cputemperature' ? 1 : 0.01}
             value={level}
             onChange={(e) => updateNodeState(id, { level: Number(e.target.value) })}
           />
@@ -239,15 +241,20 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
               {slider}
             </div>
           );
-        if (data.kind === 'cputemperature')
+        if (data.kind === 'cputemperature') {
+          const minTemp = Number(data.params.min_temp);
+          const tempRange = Number(data.params.max_temp) - minTemp;
+          // clamped just for the fill height — the emitted value isn't
+          const fill = tempRange === 0 ? 0 : Math.min(1, Math.max(0, (level - minTemp) / tempRange));
           return (
             <div className="widget-stack">
               <div className="thermo">
-                <div className="thermo-fill" style={{ height: `${level * 100}%` }} />
+                <div className="thermo-fill" style={{ height: `${fill * 100}%` }} />
               </div>
               {slider}
             </div>
           );
+        }
         if (data.kind === 'loadaverage')
           return (
             <div className="widget-stack">
@@ -550,10 +557,8 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         return `pins ${pin(data.params.phase)}/${pin(data.params.enable)}`;
       case 'energenie':
         return `socket ${data.params.socket}`;
-      case 'cputemperature': {
-        const min = Number(data.params.min_temp);
-        return `${(min + value * (Number(data.params.max_temp) - min)).toFixed(1)}°C`;
-      }
+      case 'cputemperature':
+        return `${Number(data.state.level ?? 0).toFixed(1)}°C`;
       case 'loadaverage': {
         const min = Number(data.params.min_load_average);
         return `load ${(min + value * (Number(data.params.max_load_average) - min)).toFixed(2)}`;

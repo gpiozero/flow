@@ -301,7 +301,10 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
       { name: 'min_temp', label: 'min_temp', type: 'float', default: 0, step: 1 },
       { name: 'max_temp', label: 'max_temp', type: 'float', default: 100, step: 1 },
     ],
-    initialState: { level: 0.5 },
+    // state.level is the simulated sensor reading in °C (0..100 on the
+    // slider), not a pre-scaled fraction — matches gpiozero, where the
+    // value is computed from a real temperature reading, not set directly
+    initialState: { level: 50 },
   },
   loadaverage: {
     kind: 'loadaverage',
@@ -887,8 +890,8 @@ export function valueSummary(
       };
     case 'cputemperature':
       return {
-        range: HALF,
-        meaning: `temperature scaled: 0 = ${params.min_temp}°C, 1 = ${params.max_temp}°C`,
+        range: '0 … 1, or beyond',
+        meaning: `temperature scaled: 0 = ${params.min_temp}°C, 1 = ${params.max_temp}°C — outside that range, the value goes with it`,
       };
     case 'loadaverage':
       return {
