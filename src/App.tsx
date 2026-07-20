@@ -76,6 +76,7 @@ import {
 import type { TrashedCanvas } from './persist';
 import { CanvasPicker } from './components/CanvasPicker';
 import { ExportPreviewModal } from './components/ExportPreviewModal';
+import { LiveModeModal } from './components/LiveModeModal';
 import { convertParams, convertTarget } from './convert';
 import { FlowContext } from './store';
 import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
@@ -627,9 +628,11 @@ function Editor() {
   );
 
   useEffect(() => {
+    const liveModalOpen = mode === 'live' && !liveModeAvailable;
     const onKey = (e: KeyboardEvent) => {
-      // leave the export preview's own text (the code block) copyable
-      if (!(e.ctrlKey || e.metaKey) || e.altKey || exportPreview) return;
+      // leave a modal's own text (the export preview's code block, the
+      // Live mode explainer) copyable
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || exportPreview || liveModalOpen) return;
       // leave copy/paste alone inside text fields and dropdowns
       const target = e.target as HTMLElement | null;
       if (target?.closest('input, textarea, select, [contenteditable]')) return;
@@ -638,7 +641,7 @@ function Editor() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [copySelected, pasteClipboard, exportPreview]);
+  }, [copySelected, pasteClipboard, exportPreview, mode, liveModeAvailable]);
 
   const onSelectionChange = useCallback(({ nodes: selected }: OnSelectionChangeParams) => {
     setSelectedId(selected.length === 1 ? selected[0].id : null);
@@ -1011,14 +1014,6 @@ function Editor() {
               Live
             </button>
           </div>
-          {mode === 'live' && !liveModeAvailable && (
-            <div className="topbar-pi-local-only">
-              <span>Live mode needs your Pi reachable directly, which a hosted site can't do.</span>
-              <a className="topbar-pi-local-only-link" href="/gpiozero-flow.zip">
-                Download the app + agent to run locally →
-              </a>
-            </div>
-          )}
           {mode === 'live' && liveModeAvailable && (
             <div className="topbar-pi">
               <span
@@ -1103,6 +1098,9 @@ function Editor() {
             Pinout
           </button>
         </header>
+        {mode === 'live' && !liveModeAvailable && (
+          <LiveModeModal onClose={() => changeMode('simulator')} />
+        )}
         {exportPreview && (
           <ExportPreviewModal
             title={exportPreview.title}
