@@ -14,14 +14,18 @@ interface Props {
   onDelete: () => void;
   deleteDisabled: boolean;
   /** copy a shareable link for the current canvas to the clipboard */
-  onShare: (includeState: boolean) => void;
+  onExportLink: (includeState: boolean) => void;
   /** copy the raw canvas JSON — no size limit, the fallback for a link that's too big */
-  onShareJson: (includeState: boolean) => void;
+  onExportJson: (includeState: boolean) => void;
+  /** download the canvas as a .json file */
+  onDownloadJson: (includeState: boolean) => void;
+  /** download the canvas as the equivalent gpiozero .py script */
+  onDownloadPython: () => void;
   /** encoded share-link length (chars) with/without interactive state, for the size readout */
-  shareSizeWithState: number;
-  shareSizeWithoutState: number;
+  exportSizeWithState: number;
+  exportSizeWithoutState: number;
   /** encoded length past which a share link is rejected as too large */
-  shareLimit: number;
+  exportLimit: number;
   /** import a canvas from pasted JSON; returns whether it was valid */
   onImport: (json: string) => boolean;
   /** recently deleted canvases, most recent first; empty hides the trash button entirely */
@@ -56,11 +60,13 @@ export function CanvasPicker({
   clearDisabled,
   onDelete,
   deleteDisabled,
-  onShare,
-  onShareJson,
-  shareSizeWithState,
-  shareSizeWithoutState,
-  shareLimit,
+  onExportLink,
+  onExportJson,
+  onDownloadJson,
+  onDownloadPython,
+  exportSizeWithState,
+  exportSizeWithoutState,
+  exportLimit,
   onImport,
   trash,
   onRestore,
@@ -69,15 +75,17 @@ export function CanvasPicker({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const [trashOpen, setTrashOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   // configuration only by default — the more portable, more shareable option
   const [includeState, setIncludeState] = useState(false);
-  const shareSize = includeState ? shareSizeWithState : shareSizeWithoutState;
-  const shareTooLarge = shareSize > shareLimit;
+  const exportSize = includeState ? exportSizeWithState : exportSizeWithoutState;
+  const linkTooLarge = exportSize > exportLimit;
   // too big regardless of the toggle: no point offering it as a choice
-  const bothTooLarge = shareSizeWithState > shareLimit && shareSizeWithoutState > shareLimit;
+  const bothTooLarge = exportSizeWithState > exportLimit && exportSizeWithoutState > exportLimit;
   const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState('');
+  const [importDragOver, setImportDragOver] = useState(false);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   // Enter/Escape settle the draft themselves, then blur; the blur
   // handler must not commit again — it would run with stale state
@@ -145,6 +153,23 @@ export function CanvasPicker({
         inputRef.current?.blur();
       }
     }
+  };
+
+  // Shared by the Load button and file drop/browse: show the text in
+  // the textarea (so an invalid file's contents can be seen and fixed)
+  // and clear/close only once onImport confirms it's valid.
+  const loadImportText = (text: string) => {
+    setImportText(text);
+    if (onImport(text)) {
+      setImportText('');
+      setImportOpen(false);
+    }
+  };
+
+  const handleImportFiles = (files: FileList | null) => {
+    const file = files?.[0];
+    if (!file) return;
+    file.text().then(loadImportText);
   };
 
   return (
@@ -220,29 +245,29 @@ export function CanvasPicker({
         Delete
       </button>
       <div
-        className="combo canvas-share"
+        className="combo canvas-export"
         onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setShareOpen(false);
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setExportOpen(false);
         }}
       >
         <button
-          className="canvas-share-toggle"
-          onClick={() => setShareOpen((o) => !o)}
-          title="Copy a shareable link to this canvas"
-          aria-expanded={shareOpen}
+          className="canvas-export-toggle"
+          onClick={() => setExportOpen((o) => !o)}
+          title="Export this canvas as a link, JSON, or a Python script"
+          aria-expanded={exportOpen}
         >
-          Share
+          Export
         </button>
-        {shareOpen && (
-          <div className="combo-menu canvas-share-menu" role="menu">
+        {exportOpen && (
+          <div className="combo-menu canvas-export-menu" role="menu">
             {bothTooLarge ? (
-              <div className="canvas-share-size over-limit">
-                Too big to share via a link — copy the raw JSON instead
+              <div className="canvas-export-size over-limit">
+                Too big to share via a link — copy or download the JSON instead
               </div>
             ) : (
               <>
                 <label
-                  className="canvas-share-option"
+                  className="canvas-export-option"
                   onMouseDown={(e) => e.preventDefault() /* keep focus, so blur doesn't close the popover before the click lands */}
                 >
                   <input
@@ -252,31 +277,50 @@ export function CanvasPicker({
                   />
                   Include current state
                 </label>
-                <div className={`canvas-share-size${shareTooLarge ? ' over-limit' : ''}`}>
-                  {shareSize.toLocaleString()} / {shareLimit.toLocaleString()} characters
-                  {shareTooLarge && ' — too large to share'}
+                <div className={`canvas-export-size${linkTooLarge ? ' over-limit' : ''}`}>
+                  {exportSize.toLocaleString()} / {exportLimit.toLocaleString()} characters
+                  {linkTooLarge && ' — too large to share'}
                 </div>
                 <button
-                  className="canvas-share-copy"
+                  className="canvas-export-copy"
                   onClick={() => {
-                    onShare(includeState);
-                    setShareOpen(false);
+                    onExportLink(includeState);
+                    setExportOpen(false);
                   }}
-                  disabled={shareTooLarge}
+                  disabled={linkTooLarge}
                 >
                   Copy link
                 </button>
               </>
             )}
             <button
-              className="canvas-share-copy-json"
+              className="canvas-export-copy-json"
               onClick={() => {
-                onShareJson(includeState);
-                setShareOpen(false);
+                onExportJson(includeState);
+                setExportOpen(false);
               }}
               title="Copy the raw canvas JSON — no size limit, for when the link is too big to share"
             >
               Copy raw JSON
+            </button>
+            <button
+              className="canvas-export-download-json"
+              onClick={() => {
+                onDownloadJson(includeState);
+                setExportOpen(false);
+              }}
+            >
+              Download JSON
+            </button>
+            <button
+              className="canvas-export-download-python"
+              onClick={() => {
+                onDownloadPython();
+                setExportOpen(false);
+              }}
+              title="Download the equivalent gpiozero Python script"
+            >
+              Download Python
             </button>
           </div>
         )}
@@ -290,28 +334,54 @@ export function CanvasPicker({
         <button
           className="canvas-import-toggle"
           onClick={() => setImportOpen((o) => !o)}
-          title="Import a canvas from pasted JSON"
+          title="Import a canvas from pasted JSON or a dropped file"
           aria-expanded={importOpen}
         >
           Import
         </button>
         {importOpen && (
           <div className="combo-menu canvas-import-menu" role="menu">
-            <textarea
-              className="canvas-import-textarea"
-              value={importText}
-              onChange={(e) => setImportText(e.target.value)}
-              placeholder="Paste canvas JSON here"
-              aria-label="Canvas JSON to import"
-            />
+            <div
+              className={`canvas-import-dropzone${importDragOver ? ' drag-over' : ''}`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setImportDragOver(true);
+              }}
+              onDragLeave={() => setImportDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setImportDragOver(false);
+                handleImportFiles(e.dataTransfer.files);
+              }}
+            >
+              <textarea
+                className="canvas-import-textarea"
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                placeholder="Paste canvas JSON, or drop a .json file here"
+                aria-label="Canvas JSON to import"
+              />
+              <button
+                type="button"
+                className="canvas-import-browse"
+                onClick={() => importFileInputRef.current?.click()}
+              >
+                Choose file…
+              </button>
+              <input
+                ref={importFileInputRef}
+                type="file"
+                accept="application/json,.json"
+                className="canvas-import-file-input"
+                onChange={(e) => {
+                  handleImportFiles(e.target.files);
+                  e.target.value = '';
+                }}
+              />
+            </div>
             <button
               className="canvas-import-load"
-              onClick={() => {
-                if (onImport(importText)) {
-                  setImportText('');
-                  setImportOpen(false);
-                }
-              }}
+              onClick={() => loadImportText(importText)}
               disabled={importText.trim() === ''}
             >
               Load

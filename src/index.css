@@ -167,11 +167,11 @@ body {
   background: var(--c-panel);
 }
 
-.canvas-share {
+.canvas-export {
   position: relative;
 }
 
-.canvas-share-toggle {
+.canvas-export-toggle {
   padding: 5px 8px;
   border: 1px solid var(--c-border);
   border-radius: 6px;
@@ -182,13 +182,13 @@ body {
   cursor: pointer;
 }
 
-.canvas-share-toggle:hover {
+.canvas-export-toggle:hover {
   background: var(--c-panel);
   color: var(--c-text);
 }
 
-.canvas-share-menu {
-  width: 220px;
+.canvas-export-menu {
+  width: 240px;
   right: 0;
   left: auto;
   display: flex;
@@ -197,7 +197,7 @@ body {
   padding: 10px;
 }
 
-.canvas-share-option {
+.canvas-export-option {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -205,16 +205,16 @@ body {
   cursor: pointer;
 }
 
-.canvas-share-size {
+.canvas-export-size {
   font-size: 11px;
   color: var(--c-muted);
 }
 
-.canvas-share-size.over-limit {
+.canvas-export-size.over-limit {
   color: #c92a2a;
 }
 
-.canvas-share-copy {
+.canvas-export-copy {
   padding: 5px 8px;
   border: 1px solid var(--c-border);
   border-radius: 6px;
@@ -224,16 +224,16 @@ body {
   cursor: pointer;
 }
 
-.canvas-share-copy:hover:not(:disabled) {
+.canvas-export-copy:hover:not(:disabled) {
   background: var(--c-panel);
 }
 
-.canvas-share-copy:disabled {
+.canvas-export-copy:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
-.canvas-share-copy-json {
+.canvas-export-copy-json {
   padding: 5px 8px;
   border: 1px dashed var(--c-border);
   border-radius: 6px;
@@ -244,9 +244,25 @@ body {
   cursor: pointer;
 }
 
-.canvas-share-copy-json:hover {
+.canvas-export-copy-json:hover {
   background: var(--c-panel);
   color: var(--c-text);
+}
+
+.canvas-export-download-json,
+.canvas-export-download-python {
+  padding: 5px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.canvas-export-download-json:hover,
+.canvas-export-download-python:hover {
+  background: var(--c-panel);
 }
 
 .canvas-import {
@@ -279,6 +295,20 @@ body {
   padding: 10px;
 }
 
+.canvas-import-dropzone {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border: 1px dashed var(--c-border);
+  border-radius: 6px;
+}
+
+.canvas-import-dropzone.drag-over {
+  border-color: var(--c-outputs);
+  background: var(--c-panel);
+}
+
 .canvas-import-textarea {
   width: 100%;
   height: 90px;
@@ -288,6 +318,27 @@ body {
   font-family: ui-monospace, monospace;
   font-size: 11px;
   resize: vertical;
+}
+
+.canvas-import-browse {
+  align-self: flex-start;
+  padding: 3px 6px;
+  border: 1px solid var(--c-border);
+  border-radius: 4px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--c-muted);
+  cursor: pointer;
+}
+
+.canvas-import-browse:hover {
+  background: var(--c-panel);
+  color: var(--c-text);
+}
+
+.canvas-import-file-input {
+  display: none;
 }
 
 .canvas-import-load {

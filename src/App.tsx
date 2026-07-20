@@ -23,9 +23,9 @@ import { ConfigPanel } from './components/ConfigPanel';
 import { Pinout } from './components/Pinout';
 import { DeviceNode } from './components/DeviceNode';
 import { HostCombo } from './components/HostCombo';
-import { ScriptModal } from './components/ScriptModal';
 import { BOARD_MIME, DRAG_MIME, Sidebar } from './components/Sidebar';
 import { WireEdge } from './components/WireEdge';
+import { generateScript } from './codegen';
 import {
   PIN_ASSIGN_ORDER,
   SPECS,
@@ -75,6 +75,7 @@ import {
 } from './persist';
 import type { TrashedCanvas } from './persist';
 import { CanvasPicker } from './components/CanvasPicker';
+import { ExportPreviewModal } from './components/ExportPreviewModal';
 import { convertParams, convertTarget } from './convert';
 import { FlowContext } from './store';
 import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
@@ -121,6 +122,19 @@ function shareHashParam(): string | null {
   return match ? match[1] : null;
 }
 
+/** A canvas name, trimmed to characters safe to use verbatim as a filename stem */
+function sanitizeFilename(name: string): string {
+  return name.trim().replace(/[^a-z0-9_-]+/gi, '_') || 'canvas';
+}
+
+interface ExportPreview {
+  title: string;
+  content: string;
+  defaultFilename: string;
+  extension: string;
+  mimeType: string;
+}
+
 function Editor() {
   // the current canvas survives reloads: restored once here, saved on
   // change below; the topbar picker switches between named canvases
@@ -131,8 +145,11 @@ function Editor() {
   const [nodes, setNodes, onNodesChange] = useNodesState<DeviceFlowNode>(initialCanvas.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialCanvas.edges);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [scriptOpen, setScriptOpen] = useState(false);
   const [pinoutOpen, setPinoutOpen] = useState(false);
+  // "Download JSON"/"Download Python" open this preview modal rather
+  // than downloading straight away, so the file can be checked and
+  // renamed first.
+  const [exportPreview, setExportPreview] = useState<ExportPreview | null>(null);
   // Pins are stored as BCM ints throughout (params, pin assignment,
   // the Pi wire format); the numbering only changes how they're shown
   // and how generated code spells them (17 vs 'BOARD11').
@@ -601,7 +618,8 @@ function Editor() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey) || e.altKey || scriptOpen) return;
+      // leave the export preview's own text (the code block) copyable
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || exportPreview) return;
       // leave copy/paste alone inside text fields and dropdowns
       const target = e.target as HTMLElement | null;
       if (target?.closest('input, textarea, select, [contenteditable]')) return;
@@ -610,7 +628,7 @@ function Editor() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [copySelected, pasteClipboard, scriptOpen]);
+  }, [copySelected, pasteClipboard, exportPreview]);
 
   const onSelectionChange = useCallback(({ nodes: selected }: OnSelectionChangeParams) => {
     setSelectedId(selected.length === 1 ? selected[0].id : null);
@@ -712,15 +730,15 @@ function Editor() {
   // state, so the picker can show a live size readout as the user
   // toggles the option. Compression is async, so this trails a render
   // behind nodes/edges rather than being a plain useMemo.
-  const [shareSizeWithState, setShareSizeWithState] = useState(0);
-  const [shareSizeWithoutState, setShareSizeWithoutState] = useState(0);
+  const [exportSizeWithState, setExportSizeWithState] = useState(0);
+  const [exportSizeWithoutState, setExportSizeWithoutState] = useState(0);
   useEffect(() => {
     let cancelled = false;
     Promise.all([buildShareParam(nodes, edges, true), buildShareParam(nodes, edges, false)]).then(
       ([withState, withoutState]) => {
         if (cancelled) return;
-        setShareSizeWithState(withState.length);
-        setShareSizeWithoutState(withoutState.length);
+        setExportSizeWithState(withState.length);
+        setExportSizeWithoutState(withoutState.length);
       },
     );
     return () => {
@@ -731,7 +749,7 @@ function Editor() {
   // Copy a `#canvas=` link encoding the current nodes/edges to the
   // clipboard. The payload is deflate-compressed before base64url —
   // see persist.ts — but a large enough canvas is still refused.
-  const shareCanvas = useCallback(
+  const exportLink = useCallback(
     async (includeState: boolean) => {
       const encoded = await encodeSharedCanvas(nodes, edges, includeState);
       if (encoded === SHARE_TOO_LARGE) {
@@ -749,9 +767,9 @@ function Editor() {
 
   // Copy the raw (un-encoded) canvas JSON — no URL length limit, so
   // this is the fallback for a canvas too big to share as a link.
-  const shareCanvasJson = useCallback(
+  const exportJson = useCallback(
     (includeState: boolean) => {
-      const json = buildShareJson(nodes, edges, includeState);
+      const json = buildShareJson(nodes, edges, includeState, true);
       navigator.clipboard.writeText(json).then(
         () => showWarning('Canvas JSON copied to clipboard'),
         () => showWarning('Could not copy to clipboard'),
@@ -759,6 +777,33 @@ function Editor() {
     },
     [nodes, edges, showWarning],
   );
+
+  // "Download JSON"/"Download Python" open a preview modal (same
+  // payload as "Copy raw JSON", or the equivalent gpiozero .py script)
+  // rather than downloading straight away, so the file can be checked
+  // and renamed first.
+  const downloadJson = useCallback(
+    (includeState: boolean) => {
+      setExportPreview({
+        title: 'Canvas JSON',
+        content: buildShareJson(nodes, edges, includeState, true),
+        defaultFilename: sanitizeFilename(canvasName),
+        extension: '.json',
+        mimeType: 'application/json',
+      });
+    },
+    [nodes, edges, canvasName],
+  );
+
+  const downloadPython = useCallback(() => {
+    setExportPreview({
+      title: 'Python script',
+      content: generateScript(nodes, edges, numbering),
+      defaultFilename: sanitizeFilename(canvasName),
+      extension: '.py',
+      mimeType: 'text/x-python',
+    });
+  }, [nodes, edges, numbering, canvasName]);
 
   // Import a canvas from pasted JSON (the counterpart to "copy raw
   // JSON"): lands as a new named canvas, current canvas saved first.
@@ -909,11 +954,13 @@ function Editor() {
             clearDisabled={nodes.length === 0}
             onDelete={deleteCurrentCanvas}
             deleteDisabled={canvasList.length < 2 && nodes.length === 0}
-            onShare={shareCanvas}
-            onShareJson={shareCanvasJson}
-            shareSizeWithState={shareSizeWithState}
-            shareSizeWithoutState={shareSizeWithoutState}
-            shareLimit={SHARE_PARAM_LIMIT}
+            onExportLink={exportLink}
+            onExportJson={exportJson}
+            onDownloadJson={downloadJson}
+            onDownloadPython={downloadPython}
+            exportSizeWithState={exportSizeWithState}
+            exportSizeWithoutState={exportSizeWithoutState}
+            exportLimit={SHARE_PARAM_LIMIT}
             onImport={importCanvasJson}
             trash={trash}
             onRestore={restoreFromTrash}
@@ -1017,16 +1064,15 @@ function Editor() {
           >
             Pinout
           </button>
-          <button className="topbar-script" onClick={() => setScriptOpen(true)}>
-            View Python script
-          </button>
         </header>
-        {scriptOpen && (
-          <ScriptModal
-            nodes={nodes}
-            edges={edges}
-            numbering={numbering}
-            onClose={() => setScriptOpen(false)}
+        {exportPreview && (
+          <ExportPreviewModal
+            title={exportPreview.title}
+            content={exportPreview.content}
+            defaultFilename={exportPreview.defaultFilename}
+            extension={exportPreview.extension}
+            mimeType={exportPreview.mimeType}
+            onClose={() => setExportPreview(null)}
           />
         )}
         <div className="workspace">

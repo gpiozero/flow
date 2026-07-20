@@ -296,12 +296,15 @@ async function inflateFromBase64Url(param: string): Promise<string> {
  * each node's interactive state from the payload entirely (e.g. a
  * pressed button un-presses) rather than carrying the sender's
  * in-progress simulation across the link; fromSaved fills it back in
- * with the node's catalog default on load.
+ * with the node's catalog default on load. `pretty` indents for human
+ * reading (Copy raw JSON, Download JSON); the compressed link form
+ * always passes false to keep the pre-compression payload compact.
  */
 export function buildShareJson(
   nodes: DeviceFlowNode[],
   edges: Edge[],
   includeState: boolean,
+  pretty = false,
 ): string {
   const saved: SavedCanvas = {
     nodes: nodes.map((n) => {
@@ -311,7 +314,7 @@ export function buildShareJson(
     }),
     edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
   };
-  return JSON.stringify(saved);
+  return JSON.stringify(saved, null, pretty ? 2 : undefined);
 }
 
 /** Compressed, base64url-encoded form of buildShareJson, for the `#canvas=` link and its length check */
