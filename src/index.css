@@ -1951,9 +1951,9 @@ body {
 }
 
 .bar-led.on {
-  background: #ef4444;
-  border-color: #dc2626;
-  box-shadow: 0 0 4px rgba(239, 68, 68, 0.7);
+  background: var(--bar-color, #ef4444);
+  border-color: color-mix(in srgb, var(--bar-color, #ef4444) 80%, black);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--bar-color, #ef4444) 70%, transparent);
 }
 
 /* pwm bar LEDs dim via the fill's opacity */
@@ -1961,8 +1961,8 @@ body {
   position: absolute;
   inset: -1px;
   border-radius: 2px;
-  background: #ef4444;
-  box-shadow: 0 0 4px rgba(239, 68, 68, 0.7);
+  background: var(--bar-color, #ef4444);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--bar-color, #ef4444) 70%, transparent);
   transition: opacity 0.1s;
 }
 

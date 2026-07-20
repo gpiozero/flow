@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { PointerEvent, ReactElement } from 'react';
+import type { CSSProperties, PointerEvent, ReactElement } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { SPECS, adcMin, dynamicPinCount } from '../catalog';
@@ -487,7 +487,29 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
             })}
           </div>
         );
-      case 'ledboard':
+      case 'ledboard': {
+        // _color/_barStyle are visual-only overrides some boards set
+        // (e.g. Pi-LITEr) — not real gpiozero params, so they're never
+        // shown in the config panel or emitted by codegen (both only
+        // look at the catalog's declared param list).
+        const colorStyle = data.params._color
+          ? ({ '--bar-color': String(data.params._color) } as CSSProperties)
+          : undefined;
+        if (data.params._barStyle)
+          return (
+            <div className="bar-graph" style={colorStyle}>
+              {Array.from({ length: dynamicPinCount(data.kind, data.params) }, (_, i) => {
+                const brightness = channel(i);
+                if (!data.params.pwm)
+                  return <div key={i} className={`bar-led${brightness !== 0 ? ' on' : ''}`} />;
+                return (
+                  <div key={i} className="bar-led">
+                    <div className="bar-fill" style={{ opacity: brightness }} />
+                  </div>
+                );
+              })}
+            </div>
+          );
         return (
           <div className="board-row">
             {Array.from({ length: dynamicPinCount(data.kind, data.params) }, (_, i) => {
@@ -508,11 +530,15 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
             })}
           </div>
         );
+      }
       case 'ledbargraph': {
         const leds = dynamicPinCount(data.kind, data.params);
         const mag = Math.abs(value) * leds;
+        const colorStyle = data.params._color
+          ? ({ '--bar-color': String(data.params._color) } as CSSProperties)
+          : undefined;
         return (
-          <div className="bar-graph">
+          <div className="bar-graph" style={colorStyle}>
             {Array.from({ length: leds }, (_, i) => {
               // negative values fill from the far end, as in gpiozero;
               // with pwm the LED the value only partly covers is dimmed

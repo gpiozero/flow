@@ -109,7 +109,21 @@ export const BOARDS: Record<string, BoardSpec> = {
       {
         kind: 'ledboard',
         name: 'piliter',
-        params: { leds: 8, pin1: 4, pin2: 17, pin3: 27, pin4: 18, pin5: 22, pin6: 23, pin7: 24, pin8: 25 },
+        // _barStyle/_color: visual only, matching the real board's
+        // yellowish-white LEDs and the piliterbargraph board's look
+        params: {
+          leds: 8,
+          pin1: 4,
+          pin2: 17,
+          pin3: 27,
+          pin4: 18,
+          pin5: 22,
+          pin6: 23,
+          pin7: 24,
+          pin8: 25,
+          _barStyle: true,
+          _color: '#fde68a',
+        },
         offset: { x: 0, y: 0 },
       },
     ],
@@ -122,7 +136,18 @@ export const BOARDS: Record<string, BoardSpec> = {
       {
         kind: 'ledbargraph',
         name: 'piliter',
-        params: { leds: 8, pin1: 4, pin2: 17, pin3: 27, pin4: 18, pin5: 22, pin6: 23, pin7: 24, pin8: 25 },
+        params: {
+          leds: 8,
+          pin1: 4,
+          pin2: 17,
+          pin3: 27,
+          pin4: 18,
+          pin5: 22,
+          pin6: 23,
+          pin7: 24,
+          pin8: 25,
+          _color: '#fde68a',
+        },
         offset: { x: 0, y: 0 },
       },
     ],
