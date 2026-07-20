@@ -214,7 +214,13 @@ export const BOARDS: Record<string, BoardSpec> = {
     // devices, same approach as SnowPi. Left/right are the pumpkin's
     // own, so facing it they're mirrored on screen.
     components: [
-      { kind: 'ledboard', name: 'eyes', params: { leds: 2, pin1: 6, pin2: 12 }, offset: { x: 60, y: 0 } },
+      {
+        kind: 'ledboard',
+        name: 'eyes',
+        // _color: visual only — a classic jack-o'-lantern glow
+        params: { leds: 2, pin1: 6, pin2: 12, _color: '#22c55e' },
+        offset: { x: 60, y: 0 },
+      },
       {
         kind: 'ledboard',
         name: 'sides_right',

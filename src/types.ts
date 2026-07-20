@@ -84,9 +84,11 @@ export interface ParamSpec {
    * assignment; 'channel' does the same for MCP3008 channels 0-7.
    * 'text' is a free string (e.g. PingServer's host); 'time' is a
    * "HH:MM" string rendered as a time picker and emitted as a
-   * datetime.time in generated code.
+   * datetime.time in generated code. 'color' is a dropdown over
+   * LED_COLORS, simulation-only — gpiozero LEDs have no colour of
+   * their own, so it's always omit: true.
    */
-  type: 'int' | 'float' | 'bool' | 'pin' | 'channel' | 'text' | 'time';
+  type: 'int' | 'float' | 'bool' | 'pin' | 'channel' | 'text' | 'time' | 'color';
   default: ParamValue;
   min?: number;
   max?: number;

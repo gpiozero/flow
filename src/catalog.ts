@@ -1,6 +1,28 @@
 import type { NodeKind, NodeSpec, ParamValue, Section } from './types';
 
 /**
+ * Simulation-only LED colours: gpiozero's LED/PWMLED have no colour of
+ * their own (any physical colour is just whatever's wired up), so this
+ * is purely a config-panel dropdown driving the node's glow — the
+ * 'color' param is always omit: true, never emitted by codegen.
+ */
+export const LED_COLORS: { name: string; hex: string }[] = [
+  { name: 'red', hex: '#ef4444' },
+  { name: 'orange', hex: '#f97316' },
+  { name: 'yellow', hex: '#eab308' },
+  { name: 'green', hex: '#22c55e' },
+  { name: 'cyan', hex: '#06b6d4' },
+  { name: 'blue', hex: '#3b82f6' },
+  { name: 'magenta', hex: '#d946ef' },
+  { name: 'white', hex: '#fde68a' },
+];
+
+/** Hex for a LED_COLORS name; falls back to red for an unrecognised or unset value */
+export function ledColorHex(name: ParamValue | undefined): string {
+  return LED_COLORS.find((c) => c.name === name)?.hex ?? LED_COLORS[0].hex;
+}
+
+/**
  * An MCP3xxx ADC spec: multi-channel chips get a channel dropdown
  * (sized by the chip) and a differential toggle; single-channel chips
  * (MCP3001/3201/3301) are inherently differential and take neither.
@@ -167,6 +189,7 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     hasOutput: true,
     params: [
       { name: 'pin', label: 'pin', type: 'pin', default: 17 },
+      { name: 'color', label: 'color', type: 'color', default: 'red', omit: true },
       { name: 'active_high', label: 'active_high', type: 'bool', default: true },
       { name: 'initial_value', label: 'initial_value', type: 'bool', default: false },
       { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
@@ -182,6 +205,7 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     hasOutput: true,
     params: [
       { name: 'pin', label: 'pin', type: 'pin', default: 18 },
+      { name: 'color', label: 'color', type: 'color', default: 'red', omit: true },
       { name: 'active_high', label: 'active_high', type: 'bool', default: true },
       { name: 'initial_value', label: 'initial_value', type: 'float', default: 0, min: 0, max: 1, step: 0.01 },
       { name: 'frequency', label: 'frequency', type: 'int', default: 100, min: 1, max: 10000 },

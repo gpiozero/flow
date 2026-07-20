@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { CSSProperties, PointerEvent, ReactElement } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
-import { SPECS, adcMin, dynamicPinCount } from '../catalog';
+import { SPECS, adcMin, dynamicPinCount, ledColorHex } from '../catalog';
 import { pinDisplay } from '../pins';
 import { useFlow } from '../store';
 import type { DeviceFlowNode, NodeKind, ParamValue } from '../types';
@@ -379,20 +379,24 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
             <span className="line-indicator" />
           </button>
         );
-      case 'led':
-        return <div className={`led-dot${value > 0 ? ' lit' : ''}`} />;
-      case 'pwmled':
+      case 'led': {
+        const ledColorStyle = { '--led-color': ledColorHex(data.params.color) } as CSSProperties;
+        return <div className={`led-dot${value > 0 ? ' lit' : ''}`} style={ledColorStyle} />;
+      }
+      case 'pwmled': {
+        const hex = ledColorHex(data.params.color);
         return (
-          <div className="led-dot">
+          <div className="led-dot" style={{ '--led-color': hex } as CSSProperties}>
             <div
               className="pwm-fill"
               style={{
                 opacity: value,
-                boxShadow: `0 0 ${14 * value}px ${4 * value}px rgba(239, 68, 68, ${0.6 * value})`,
+                boxShadow: `0 0 ${14 * value}px ${4 * value}px color-mix(in srgb, ${hex} ${Math.round(0.6 * value * 100)}%, transparent)`,
               }}
             />
           </div>
         );
+      }
       case 'buzzer':
         return <div className={`buzzer${value !== 0 ? ' buzzing' : ''}`} />;
       case 'tonalbuzzer': {
@@ -536,12 +540,15 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
           <div className="board-row">
             {Array.from({ length: dynamicPinCount(data.kind, data.params) }, (_, i) => {
               const brightness = channel(i);
-              // _firstColor: visual only, for boards whose first LED is a
-              // different colour in real life (e.g. PiHutXmasTree's star)
+              // _firstColor overrides just the first LED (e.g.
+              // PiHutXmasTree's star); _color applies to all of them
+              // (e.g. PumpkinPi's eyes) — both visual only
               const dotStyle =
                 i === 0 && data.params._firstColor
                   ? ({ '--led-color': String(data.params._firstColor) } as CSSProperties)
-                  : undefined;
+                  : data.params._color
+                    ? ({ '--led-color': String(data.params._color) } as CSSProperties)
+                    : undefined;
               if (!data.params.pwm)
                 return (
                   <div

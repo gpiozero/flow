@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import {
+  LED_COLORS,
   NAME_PATTERN,
   SPECS,
   deviceClassName,
@@ -131,6 +132,17 @@ export function ConfigPanel({
                     <option key={channel} value={channel} disabled={takenChannels.has(channel)}>
                       {channel}
                       {takenChannels.has(channel) ? ' (in use)' : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : p.type === 'color' ? (
+                <select
+                  value={String(value)}
+                  onChange={(e) => onChangeParam(node.id, p.name, e.target.value)}
+                >
+                  {LED_COLORS.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name}
                     </option>
                   ))}
                 </select>
