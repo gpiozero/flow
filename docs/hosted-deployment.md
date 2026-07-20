@@ -1,5 +1,14 @@
 # Could a hosted version of the app talk to a Pi on the user's LAN?
 
+> **Status (now that the app is actually deployed):** the mixed-content block
+> described below is real, not hypothetical. `src/pi.ts` exports `isLocalhost()`,
+> and `App.tsx` uses it to swap the Live-mode connect UI for a short explainer
+> when the page isn't on `localhost`/`127.0.0.1`/`[::1]` — see option 2 below. The
+> explainer's "how to run it locally" instructions are a placeholder for now
+> (marked with a `TODO` in `App.tsx`) pending a decision on how the app is
+> actually distributed for local use (git clone? a packaged download? something
+> else?).
+
 Short answer: **not as it stands, if the app were served over HTTPS — and any real
 deployment would be HTTPS.** The blocker is browser mixed-content policy, not networking.
 

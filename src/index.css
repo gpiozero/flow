@@ -52,6 +52,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 /* Brand mark: a small always-lit LED, same shape/colour as the real
@@ -577,6 +578,23 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.topbar-pi-local-only {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 300px;
+  font-size: 11px;
+  color: var(--c-muted);
+  line-height: 1.35;
+}
+
+.topbar-pi-local-only-todo {
+  font-family: ui-monospace, 'Cascadia Mono', monospace;
+  color: #b08800;
 }
 
 .pi-dot {

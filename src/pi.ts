@@ -5,6 +5,16 @@ import type { DeviceFlowNode, SimValue } from './types';
 
 export type PiStatus = 'disconnected' | 'connecting' | 'connected';
 
+/**
+ * Whether this page can open a ws:// connection at all: every major
+ * browser blocks insecure WebSockets from a page loaded over https
+ * (mixed content), but localhost is exempt even without TLS. See
+ * docs/hosted-deployment.md for the full picture.
+ */
+export function isLocalhost(): boolean {
+  return ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+}
+
 const STORAGE_KEY = 'gpio-webapp.pi-address';
 const DEFAULT_HOST = 'raspberrypi.local';
 export const DEFAULT_PORT = '8765';

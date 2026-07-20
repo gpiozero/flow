@@ -47,7 +47,7 @@ import {
   createSimState,
   resetNodeState,
 } from './simulation';
-import { DEFAULT_PORT, usePiLink } from './pi';
+import { DEFAULT_PORT, isLocalhost, usePiLink } from './pi';
 import { BOARDS } from './boards';
 import type { BoardSpec } from './boards';
 import { pinDisplay } from './pins';
@@ -223,6 +223,10 @@ function Editor() {
   }, [nodes, edges, tick]);
 
   const pi = usePiLink(nodes, edges, showWarning);
+  // ws:// is blocked as mixed content on a page loaded over https — see
+  // docs/hosted-deployment.md. The toggle itself stays visible either
+  // way; only the connect UI underneath is swapped for an explainer.
+  const liveModeAvailable = isLocalhost();
 
   // Simulator hides the Pi connection panel entirely; switching away
   // from Live disconnects, so leaving the panel open behind it can't
@@ -1007,7 +1011,17 @@ function Editor() {
               Live
             </button>
           </div>
-          {mode === 'live' && (
+          {mode === 'live' && !liveModeAvailable && (
+            <div className="topbar-pi-local-only">
+              <span>Live mode needs your Pi reachable directly, which a hosted site can't do.</span>
+              {/* TODO: fill in once the local-distribution story (git clone? a
+                  packaged download? something else?) is decided. */}
+              <span className="topbar-pi-local-only-todo">
+                Instructions for running the app locally: coming soon.
+              </span>
+            </div>
+          )}
+          {mode === 'live' && liveModeAvailable && (
             <div className="topbar-pi">
               <span
                 className={`pi-dot pi-dot-${pi.status}`}
