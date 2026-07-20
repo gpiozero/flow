@@ -46,7 +46,7 @@ const FEATURES: {
   {
     color: 'var(--c-adc)',
     title: 'Connect to a Pi',
-    body: "Switch to Live and point the app at a Pi's address — the same wiring now drives real GPIO hardware remotely. Browsers block that connection from a hosted site, so this needs a local copy of the app plus the agent running on the Pi.",
+    body: "Switch to Live and point the app at a Pi's address — the same wiring now drives real GPIO hardware remotely.",
     link: { href: '/live/', label: 'How to run it locally →' },
   },
 ];
