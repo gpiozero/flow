@@ -1,0 +1,48 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Deploy over SSH
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts
+
+          SSH="ssh -i ~/.ssh/deploy_key $SERVER_USER@$SERVER_HOST"
+          WWW_DIR=www/flow.bennuttall.com
+          STAGING="$WWW_DIR.new"
+          PREVIOUS="$WWW_DIR.old"
+
+          $SSH "rm -rf $STAGING && mkdir -p $STAGING"
+
+          rsync -az --delete --no-o --no-g --chmod=D755,F644 \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            dist/ "$SERVER_USER@$SERVER_HOST:$STAGING/"
+
+          $SSH "rm -rf $PREVIOUS; [ -d $WWW_DIR ] && mv $WWW_DIR $PREVIOUS; mv $STAGING $WWW_DIR; rm -rf $PREVIOUS"
