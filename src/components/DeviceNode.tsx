@@ -536,10 +536,22 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
           <div className="board-row">
             {Array.from({ length: dynamicPinCount(data.kind, data.params) }, (_, i) => {
               const brightness = channel(i);
+              // _firstColor: visual only, for boards whose first LED is a
+              // different colour in real life (e.g. PiHutXmasTree's star)
+              const dotStyle =
+                i === 0 && data.params._firstColor
+                  ? ({ '--led-color': String(data.params._firstColor) } as CSSProperties)
+                  : undefined;
               if (!data.params.pwm)
-                return <div key={i} className={`led-dot small${brightness !== 0 ? ' lit' : ''}`} />;
+                return (
+                  <div
+                    key={i}
+                    className={`led-dot small${brightness !== 0 ? ' lit' : ''}`}
+                    style={dotStyle}
+                  />
+                );
               return (
-                <div key={i} className="led-dot small">
+                <div key={i} className="led-dot small" style={dotStyle}>
                   <div
                     className="pwm-fill"
                     style={{

@@ -42,10 +42,14 @@ export function splitParts(data: DeviceData): SplitPart[] | null {
         suffix: colour,
         params: { pin: p[colour], active_high: p.active_high, source_delay: p.source_delay },
       }));
-    case 'ledboard':
+    case 'ledboard': {
+      // _channelNames (e.g. PiHutXmasTree's star/red_1/red_2/...)
+      // becomes the split names too: tree_star, tree_red_1, ...
+      const channelNames =
+        typeof p._channelNames === 'string' ? p._channelNames.split(',') : null;
       return dynamicPins(data).map((pin, i) => ({
         kind: ledKind(p.pwm),
-        suffix: `${i + 1}`,
+        suffix: channelNames?.[i] ?? `${i + 1}`,
         params: {
           pin,
           active_high: p.active_high,
@@ -54,6 +58,7 @@ export function splitParts(data: DeviceData): SplitPart[] | null {
           source_delay: p.source_delay,
         },
       }));
+    }
     case 'ledbargraph':
       // the graph's initial_value (a -1..1 fill fraction) has no
       // per-LED equivalent, so the parts start at their default

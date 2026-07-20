@@ -390,7 +390,8 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     outputShape: 'tuple',
     dynamicPins: 'leds',
     params: [
-      { name: 'leds', label: 'leds', type: 'int', default: 4, min: 1, max: 10, omit: true },
+      // 25: enough for PiHutXmasTree (24 LEDs + star)
+      { name: 'leds', label: 'leds', type: 'int', default: 4, min: 1, max: 25, omit: true },
       { name: 'pwm', label: 'pwm', type: 'bool', default: false },
       { name: 'active_high', label: 'active_high', type: 'bool', default: true },
       { name: 'initial_value', label: 'initial_value', type: 'bool', default: false },
@@ -900,7 +901,12 @@ export function valueSummary(
       };
     case 'ledboard':
       return {
-        channels: channelNames('led'),
+        // _channelNames: visual only, for boards whose LEDs have real
+        // names (e.g. PiHutXmasTree's star/red_1/red_2/...)
+        channels:
+          typeof params._channelNames === 'string'
+            ? requiredPinParams(kind, params).map((p) => pinFieldLabel(params, p))
+            : channelNames('led'),
         range: params.pwm ? HALF : BOOL,
         meaning: params.pwm ? 'brightness of each LED' : 'each LED on or off',
       };
@@ -1077,8 +1083,10 @@ export function nextDeviceName(base: string, usedNames: ReadonlySet<string>): st
 
 /** Pin count for a dynamic-pin device, clamped to its valid range */
 export function dynamicPinCount(kind: NodeKind, params: Record<string, ParamValue>): number {
-  const n = Math.floor(Number(params[SPECS[kind].dynamicPins!]));
-  return Math.min(10, Math.max(1, n || 1));
+  const paramName = SPECS[kind].dynamicPins!;
+  const max = SPECS[kind].params.find((p) => p.name === paramName)?.max ?? 10;
+  const n = Math.floor(Number(params[paramName]));
+  return Math.min(max, Math.max(1, n || 1));
 }
 
 /**
@@ -1094,6 +1102,21 @@ export function requiredPinParams(
     return Array.from({ length: dynamicPinCount(kind, params) }, (_, i) => `pin${i + 1}`);
   }
   return SPECS[kind].params.filter((p) => p.type === 'pin').map((p) => p.name);
+}
+
+/**
+ * Display label for a dynamic-pin param field (e.g. "pin3") — the
+ * matching _channelNames override entry (e.g. "red_2") if the board
+ * set one, else the raw param name. Used for both the config panel's
+ * per-pin field labels and the value line's channel list, so they
+ * always agree.
+ */
+export function pinFieldLabel(params: Record<string, ParamValue>, paramName: string): string {
+  if (typeof params._channelNames !== 'string') return paramName;
+  const match = paramName.match(/^pin(\d+)$/);
+  if (!match) return paramName;
+  const names = params._channelNames.split(',');
+  return names[Number(match[1]) - 1] ?? paramName;
 }
 
 export function defaultParams(kind: NodeKind): Record<string, ParamValue> {
@@ -1240,6 +1263,38 @@ const FIXED_PIN_BOARD_PRESETS: {
     kind: 'ledbargraph',
     className: 'PiLiterBarGraph',
     pins: { leds: 8, pin1: 4, pin2: 17, pin3: 27, pin4: 18, pin5: 22, pin6: 23, pin7: 24, pin8: 25 },
+  },
+  {
+    kind: 'ledboard',
+    className: 'PiHutXmasTree',
+    pins: {
+      leds: 25,
+      pin1: 2,
+      pin2: 4,
+      pin3: 15,
+      pin4: 13,
+      pin5: 21,
+      pin6: 25,
+      pin7: 8,
+      pin8: 5,
+      pin9: 10,
+      pin10: 16,
+      pin11: 17,
+      pin12: 27,
+      pin13: 26,
+      pin14: 24,
+      pin15: 9,
+      pin16: 12,
+      pin17: 6,
+      pin18: 20,
+      pin19: 19,
+      pin20: 14,
+      pin21: 18,
+      pin22: 11,
+      pin23: 7,
+      pin24: 23,
+      pin25: 22,
+    },
   },
 ];
 

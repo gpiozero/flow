@@ -10,9 +10,7 @@ import type { NodeKind, ParamValue } from './types';
  * gpiozero's boards.py. Component names follow the board's attribute
  * names (traffic_hat.lights -> "lights") where it has them.
  *
- * Not included: PiStop (needs a location argument choosing its pins),
- * and the boards with more LEDs than the LEDBoard node supports
- * (PiHutXmasTree: 25, PumpkinPi: 12).
+ * Not included: PiStop (needs a location argument choosing its pins).
  */
 
 export interface BoardComponent {
@@ -33,6 +31,9 @@ export interface BoardSpec {
 }
 
 const COL = 250;
+
+// star, then red_1..red_24 — PiHutXmasTree's own LED order
+const XMAS_TREE_LED_NAMES = ['star', ...Array.from({ length: 24 }, (_, i) => `red_${i + 1}`)].join(',');
 
 export const BOARDS: Record<string, BoardSpec> = {
   traffichat: {
@@ -155,6 +156,76 @@ export const BOARDS: Record<string, BoardSpec> = {
           _color: '#fde68a',
         },
         offset: { x: 0, y: 0 },
+      },
+    ],
+  },
+  pihutxmastree: {
+    id: 'pihutxmastree',
+    label: 'Pi Hut Xmas Tree',
+    description: 'The Pi Hut: 24 red LEDs plus a white star',
+    // one flat 25-LED board, in gpiozero's own order (star, then
+    // led1..led24) — matches PiHutXmasTree's fixed wiring, see
+    // FIXED_PIN_BOARD_PRESETS in catalog.ts
+    components: [
+      {
+        kind: 'ledboard',
+        name: 'tree',
+        params: {
+          leds: 25,
+          // _firstColor: visual only — the star (led index 0) is white in real life
+          _firstColor: '#fde68a',
+          _channelNames: XMAS_TREE_LED_NAMES,
+          pin1: 2,
+          pin2: 4,
+          pin3: 15,
+          pin4: 13,
+          pin5: 21,
+          pin6: 25,
+          pin7: 8,
+          pin8: 5,
+          pin9: 10,
+          pin10: 16,
+          pin11: 17,
+          pin12: 27,
+          pin13: 26,
+          pin14: 24,
+          pin15: 9,
+          pin16: 12,
+          pin17: 6,
+          pin18: 20,
+          pin19: 19,
+          pin20: 14,
+          pin21: 18,
+          pin22: 11,
+          pin23: 7,
+          pin24: 23,
+          pin25: 22,
+        },
+        offset: { x: 0, y: 0 },
+      },
+    ],
+  },
+  pumpkinpi: {
+    id: 'pumpkinpi',
+    label: 'PumpkinPi',
+    description: 'ModMyPi: two eyes and 5-LED strips down each side',
+    // gpiozero nests these as eyes.{left,right} and sides.{left,right}.
+    // {bottom,midbottom,middle,midtop,top}; laid out here as separate
+    // devices, same approach as SnowPi. Left/right are the pumpkin's
+    // own, so facing it they're mirrored on screen.
+    components: [
+      { kind: 'ledboard', name: 'eyes', params: { leds: 2, pin1: 6, pin2: 12 }, offset: { x: 60, y: 0 } },
+      {
+        kind: 'ledboard',
+        name: 'sides_right',
+        params: { leds: 5, pin1: 19, pin2: 20, pin3: 21, pin4: 22, pin5: 23 },
+        offset: { x: -220, y: 150 },
+      },
+      {
+        kind: 'ledboard',
+        name: 'sides_left',
+        params: { leds: 5, pin1: 18, pin2: 17, pin3: 16, pin4: 13, pin5: 24 },
+        offset: { x: 320, y: 150 },
       },
     ],
   },

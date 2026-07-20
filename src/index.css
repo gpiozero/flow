@@ -1404,17 +1404,17 @@ body {
 }
 
 .led-dot.lit {
-  background: #ef4444;
-  border-color: #dc2626;
-  box-shadow: 0 0 12px 2px rgba(239, 68, 68, 0.7);
+  background: var(--led-color, #ef4444);
+  border-color: color-mix(in srgb, var(--led-color, #ef4444) 80%, black);
+  box-shadow: 0 0 12px 2px color-mix(in srgb, var(--led-color, #ef4444) 70%, transparent);
 }
 
 .pwm-fill {
   position: absolute;
   inset: -1px;
   border-radius: inherit;
-  background: #ef4444;
-  border: 1px solid #dc2626;
+  background: var(--led-color, #ef4444);
+  border: 1px solid color-mix(in srgb, var(--led-color, #ef4444) 80%, black);
 }
 
 .rgb-fill {

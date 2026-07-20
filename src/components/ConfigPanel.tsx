@@ -1,6 +1,14 @@
 import { useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { NAME_PATTERN, SPECS, deviceClassName, docsUrl, requiredPinParams, valueSummary } from '../catalog';
+import {
+  NAME_PATTERN,
+  SPECS,
+  deviceClassName,
+  docsUrl,
+  pinFieldLabel,
+  requiredPinParams,
+  valueSummary,
+} from '../catalog';
 import { pinDisplay, pinOptions } from '../pins';
 import { splitLabel } from '../split';
 import { convertTarget } from '../convert';
@@ -172,7 +180,7 @@ export function ConfigPanel({
       {spec.dynamicPins &&
         pinNames.map((name) => (
           <label key={name} className="config-field">
-            <span>{name}</span>
+            <span>{pinFieldLabel(node.data.params, name)}</span>
             {renderPinSelect(name)}
           </label>
         ))}
