@@ -1931,10 +1931,10 @@ body {
 }
 
 .react-flow__handle {
-  width: 9px;
-  height: 9px;
+  width: 14px;
+  height: 14px;
   background: #64748b;
-  border: 1px solid #fff;
+  border: 2px solid #fff;
 }
 
 .edge-delete {
