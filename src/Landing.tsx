@@ -1,4 +1,26 @@
+import { useState } from 'react';
 import './landing.css';
+
+/** Button --wire--> LED, same relationship the app itself simulates. Click it. */
+function DemoCircuit() {
+  const [on, setOn] = useState(false);
+  return (
+    <button
+      type="button"
+      className={`landing-demo${on ? ' is-on' : ''}`}
+      onClick={() => setOn((v) => !v)}
+      aria-pressed={on}
+      aria-label="Demo: click the button to light the LED"
+      title="Click me"
+    >
+      <span className="landing-demo-button">
+        <span className="landing-demo-button-cap" />
+      </span>
+      <span className="landing-demo-wire" />
+      <span className="landing-demo-led" />
+    </button>
+  );
+}
 
 const FEATURES = [
   {
@@ -28,7 +50,7 @@ export default function Landing() {
     <div className="landing">
       <header className="landing-header">
         <div className="landing-brand">
-          <span className="landing-dot" />
+          <span className="landing-mini-led" aria-hidden="true" />
           gpiozero flow
         </div>
         <a className="landing-nav-link" href="/app">
@@ -37,12 +59,13 @@ export default function Landing() {
       </header>
 
       <main className="landing-hero">
+        <DemoCircuit />
         <h1>Connect GPIO devices with drag &amp; drop</h1>
         <p className="landing-subtitle">
-          Flow is a visual, node-based studio for <a href="https://gpiozero.readthedocs.io/">gpiozero</a> devices.
+          Flow is a visual, node-based interface for <a href="https://gpiozero.readthedocs.io/">gpiozero</a> devices.
         </p>
         <p className="landing-subtitle">
-          Drag components onto a canvas, wire them up, and watch values flow. Flow runs in the browser, and can connect to a Raspberry Pi to control real GPIO devices remotely.
+          Drag components onto a canvas and connect them up with no code. Flow runs in the browser, and can connect to a Raspberry Pi to control real GPIO devices remotely.
         </p>
         <a className="landing-cta" href="/app">
           Start building →

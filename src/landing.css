@@ -23,11 +23,127 @@
   font-size: 15px;
 }
 
-.landing-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+/* Header mark: a small always-lit LED, same shape/colour as the real
+   .led-dot.lit node widget in index.css. Purely decorative. */
+
+.landing-mini-led {
+  position: relative;
+  display: inline-block;
+  width: 12px;
+  height: 15px;
+  margin-bottom: 4px;
+  border-radius: 6px 6px 1px 1px;
   background: #ef4444;
+  border: 1px solid #dc2626;
+  box-shadow: 0 0 6px 1px rgba(239, 68, 68, 0.7);
+}
+
+.landing-mini-led::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 2px;
+  width: 1px;
+  height: 4px;
+  background: #94a3b8;
+  box-shadow: 5px 0 0 #94a3b8;
+}
+
+/* Hero demo: a bigger, interactive version of the same thing — a
+   button wired to an LED, colours matching the real node widgets
+   (.tactile-cap/.led-dot in index.css). Click it. */
+
+.landing-demo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  padding: 0;
+  /* buttons don't stretch to fill a block container like a div would,
+     so they shrink-wrap to content and need explicit centering */
+  margin: 0 auto 28px;
+  cursor: pointer;
+}
+
+.landing-demo-button {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  background: #374151;
+  border: 2px solid #1f2937;
+}
+
+.landing-demo-button-cap {
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f87171, #dc2626 70%);
+  box-shadow: 0 3px 0 #991b1b;
+  transition:
+    transform 0.05s,
+    box-shadow 0.05s;
+}
+
+.landing-demo.is-on .landing-demo-button-cap {
+  transform: translateY(3px);
+  box-shadow: none;
+  background: radial-gradient(circle at 35% 30%, #ef4444, #b91c1c 70%);
+}
+
+.landing-demo-wire {
+  width: 54px;
+  height: 4px;
+  margin: 0 6px;
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--c-inputs) 0,
+    var(--c-inputs) 10px,
+    transparent 10px,
+    transparent 17px
+  );
+  transition: opacity 0.15s 0.1s;
+  opacity: 0.4;
+}
+
+.landing-demo.is-on .landing-demo-wire {
+  opacity: 1;
+  animation: landing-demo-flow 0.5s linear infinite;
+}
+
+@keyframes landing-demo-flow {
+  to {
+    /* positive: the dash pattern scrolls right, toward the LED */
+    background-position: 17px 0;
+  }
+}
+
+.landing-demo-led {
+  position: relative;
+  width: 30px;
+  height: 38px;
+  border-radius: 15px 15px 4px 4px;
+  background: #d1d5db;
+  border: 2px solid #9ca3af;
+  transition: background 0.1s 0.25s, box-shadow 0.1s 0.25s, border-color 0.1s 0.25s;
+}
+
+.landing-demo-led::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 6px;
+  width: 3px;
+  height: 9px;
+  background: #94a3b8;
+  box-shadow: 12px 0 0 #94a3b8;
+}
+
+.landing-demo.is-on .landing-demo-led {
+  background: #ef4444;
+  border-color: #dc2626;
+  box-shadow: 0 0 24px 6px rgba(239, 68, 68, 0.7);
 }
 
 .landing-nav-link {
