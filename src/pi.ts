@@ -6,13 +6,15 @@ import type { DeviceFlowNode, SimValue } from './types';
 export type PiStatus = 'disconnected' | 'connecting' | 'connected';
 
 /**
- * Whether this page can open a ws:// connection at all: every major
- * browser blocks insecure WebSockets from a page loaded over https
- * (mixed content), but localhost is exempt even without TLS. See
+ * Whether this page can open a ws:// connection at all. Mixed-content
+ * blocking only fires when the page itself is https: an insecure page
+ * (whatever its hostname — localhost, raspberrypi.local, a LAN IP) can
+ * always open ws:// without restriction. So the only case Live mode
+ * needs to hide is the hosted https:// deployment. See
  * docs/hosted-deployment.md for the full picture.
  */
-export function isLocalhost(): boolean {
-  return ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+export function liveModeSupported(): boolean {
+  return window.location.protocol !== 'https:';
 }
 
 const STORAGE_KEY = 'gpio-webapp.pi-address';

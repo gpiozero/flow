@@ -12,6 +12,7 @@ export default defineConfig({
       input: {
         landing: resolve(__dirname, 'index.html'),
         app: resolve(__dirname, 'app/index.html'),
+        live: resolve(__dirname, 'live/index.html'),
       },
     },
   },

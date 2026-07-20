@@ -12,8 +12,8 @@ next click; press and hold for a momentary press.
 Switch to Live mode to drive a real Pi instead of the simulation — run
 [`agent/gpio_agent.py`](agent/README.md) on the Pi and the same canvas controls its GPIO pins over
 a websocket. Live mode needs the app itself running on `localhost` too, since browsers block an
-insecure `ws://` connection from a page served over HTTPS — the hosted site links to a downloadable
-build for exactly that.
+insecure `ws://` connection from a page served over HTTPS — the hosted site's `/live` page has
+setup instructions and a downloadable build for exactly that.
 
 ## Development
 

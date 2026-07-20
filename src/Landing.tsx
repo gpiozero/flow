@@ -47,7 +47,7 @@ const FEATURES: {
     color: 'var(--c-adc)',
     title: 'Connect to a Pi',
     body: "Switch to Live and point the app at a Pi's address — the same wiring now drives real GPIO hardware remotely. Browsers block that connection from a hosted site, so this needs a local copy of the app plus the agent running on the Pi.",
-    link: { href: '/gpiozero-flow.zip', label: 'Download the app + agent →' },
+    link: { href: '/live/', label: 'How to run it locally →' },
   },
 ];
 
@@ -55,10 +55,10 @@ export default function Landing() {
   return (
     <div className="landing">
       <header className="landing-header">
-        <div className="landing-brand">
+        <a className="landing-brand" href="/">
           <span className="brand-led" aria-hidden="true" />
           gpiozero flow
-        </div>
+        </a>
         <a className="landing-nav-link" href="/app/">
           Open the app
         </a>

@@ -2,7 +2,7 @@ interface Props {
   onClose: () => void;
 }
 
-/** Shown instead of the Pi-connect UI when the page can't open ws:// (see isLocalhost in pi.ts) */
+/** Shown instead of the Pi-connect UI when the page can't open ws:// (see liveModeSupported in pi.ts) */
 export function LiveModeModal({ onClose }: Props) {
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -17,8 +17,8 @@ export function LiveModeModal({ onClose }: Props) {
           Live mode needs your Pi reachable directly, which a hosted site can't do — browsers
           block that kind of connection from a page served over HTTPS.
         </p>
-        <a className="modal-download" href="/gpiozero-flow.zip">
-          Download the app + agent to run locally →
+        <a className="modal-download" href="/live/">
+          How to run it locally →
         </a>
       </div>
     </div>

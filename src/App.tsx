@@ -47,7 +47,7 @@ import {
   createSimState,
   resetNodeState,
 } from './simulation';
-import { DEFAULT_PORT, isLocalhost, usePiLink } from './pi';
+import { DEFAULT_PORT, liveModeSupported, usePiLink } from './pi';
 import { BOARDS } from './boards';
 import type { BoardSpec } from './boards';
 import { pinDisplay } from './pins';
@@ -227,7 +227,7 @@ function Editor() {
   // ws:// is blocked as mixed content on a page loaded over https — see
   // docs/hosted-deployment.md. The toggle itself stays visible either
   // way; only the connect UI underneath is swapped for an explainer.
-  const liveModeAvailable = isLocalhost();
+  const liveModeAvailable = liveModeSupported();
 
   // Simulator hides the Pi connection panel entirely; switching away
   // from Live disconnects, so leaving the panel open behind it can't
@@ -972,10 +972,10 @@ function Editor() {
     <FlowContext.Provider value={flowContext}>
       <div className="app">
         <header className="topbar">
-          <div className="app-brand">
+          <a className="app-brand" href="/">
             <span className="brand-led" aria-hidden="true" />
             <h1>gpiozero flow</h1>
-          </div>
+          </a>
           <CanvasPicker
             name={canvasName}
             canvases={canvasList}

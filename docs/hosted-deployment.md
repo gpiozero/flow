@@ -1,9 +1,13 @@
 # Could a hosted version of the app talk to a Pi on the user's LAN?
 
 > **Status (now that the app is actually deployed):** the mixed-content block
-> described below is real, not hypothetical. `src/pi.ts` exports `isLocalhost()`,
-> and `App.tsx` uses it to swap the Live-mode connect UI for a short explainer
-> when the page isn't on `localhost`/`127.0.0.1`/`[::1]` — see option 2 below. The
+> described below is real, not hypothetical. `src/pi.ts` exports
+> `liveModeSupported()`, and `App.tsx` uses it to swap the Live-mode connect UI
+> for a short explainer when it returns false — see option 2 below. It checks
+> `location.protocol !== 'https:'` rather than the hostname: mixed content only
+> fires when the *page* is https, so an insecure page talking to
+> `raspberrypi.local` (option 1) is just as unrestricted as one on `localhost`
+> (option 2) — hostname-only used to wrongly gate the Pi-hosted case. The
 > distribution question is resolved: source stays private, but the build is
 > public. `.github/workflows/deploy.yml` zips the built `dist/` together with
 > `agent/gpio_agent.py` and its README into `dist/gpiozero-flow.zip` on every
@@ -11,8 +15,11 @@
 > separate hosting or release process. `vite.config.ts` builds the app as its
 > own HTML entry (`app/index.html`, not client-side routing) specifically so
 > the unzipped copy works from a plain static server — `python3 -m http.server`
-> is enough, no Node/npm needed on the user's machine. Both the landing page
-> and the Live-mode explainer link to it.
+> is enough, no Node/npm needed on the user's machine, whether that server runs
+> on the user's computer (option 2) or on the Pi itself (option 1). A third
+> entry, `live/index.html`, is a dedicated page at `/live` with step-by-step
+> setup instructions for both options, plus the zip link; the landing page and
+> the Live-mode modal both link to `/live` rather than straight to the zip.
 
 Short answer: **not as it stands, if the app were served over HTTPS — and any real
 deployment would be HTTPS.** The blocker is browser mixed-content policy, not networking.
