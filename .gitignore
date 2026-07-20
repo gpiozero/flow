@@ -2,3 +2,14 @@ node_modules/
 dist/
 .claude/settings.local.json*
 *.tsbuildinfo
+
+# raw localStorage exports used as source data for src/demoCanvases.ts —
+# not needed once baked in, kept locally only
+/artificial_sources.json
+/buttonboard_ledboard.json
+/garden_light.json
+/internal_devices.json
+/led_button.json
+/pot_led.json
+/rgb_led.json
+/rotary_robot.json

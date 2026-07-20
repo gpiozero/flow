@@ -1,5 +1,6 @@
 import type { Edge } from '@xyflow/react';
 import { SPECS } from './catalog';
+import { DEMO_CANVASES } from './demoCanvases';
 import type { DeviceFlowNode } from './types';
 
 /**
@@ -31,7 +32,7 @@ export function untitledCanvasName(existing: readonly string[], base = DEFAULT_C
   }
 }
 
-interface SavedCanvas {
+export interface SavedCanvas {
   nodes: {
     id: string;
     position: { x: number; y: number };
@@ -64,6 +65,31 @@ interface CanvasStore {
   current: string;
   canvases: Record<string, SavedCanvas>;
   trash: Record<string, TrashEntry>;
+  /** DEMO_CANVASES have been seeded in — set once so a later delete sticks */
+  demosSeeded?: boolean;
+}
+
+/**
+ * Add any not-yet-seen DEMO_CANVASES to the store, once ever. After
+ * that they're just ordinary canvases: editing, renaming or deleting
+ * one behaves exactly like a canvas the user made themselves, and
+ * deleting one doesn't bring it back on the next load. A genuinely
+ * empty store (no canvases at all yet — a first-ever visit) opens on
+ * the first demo instead of a blank canvas; anyone with an existing
+ * canvas keeps whichever one was already current.
+ */
+function seedDemoCanvases(store: CanvasStore): boolean {
+  if (store.demosSeeded) return false;
+  const hadNoCanvases = Object.keys(store.canvases).length === 0;
+  for (const [name, canvas] of Object.entries(DEMO_CANVASES)) {
+    if (!(name in store.canvases)) store.canvases[name] = canvas;
+  }
+  if (hadNoCanvases) {
+    const firstDemo = Object.keys(DEMO_CANVASES)[0];
+    if (firstDemo) store.current = firstDemo;
+  }
+  store.demosSeeded = true;
+  return true;
 }
 
 export const TRASH_TTL_MS = 24 * 60 * 60 * 1000;
@@ -96,7 +122,7 @@ function readStore(): CanvasStore {
           typeof parsed.current === 'string' && parsed.current in canvases
             ? parsed.current
             : names[0] ?? DEFAULT_CANVAS;
-        store = { current, canvases, trash };
+        store = { current, canvases, trash, demosSeeded: parsed.demosSeeded === true };
       }
     }
   } catch {
@@ -114,7 +140,9 @@ function readStore(): CanvasStore {
     }
   }
   if (!store) store = { current: DEFAULT_CANVAS, canvases: {}, trash: {} };
-  if (pruneTrash(store.trash)) writeStore(store);
+  const prunedTrash = pruneTrash(store.trash);
+  const seededDemos = seedDemoCanvases(store);
+  if (prunedTrash || seededDemos) writeStore(store);
   return store;
 }
 
