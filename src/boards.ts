@@ -131,14 +131,27 @@ export const BOARDS: Record<string, BoardSpec> = {
     id: 'snowpi',
     label: 'SnowPi',
     description: 'Ryanteck: snowman with 9 LEDs (eyes, nose, arms)',
+    // gpiozero nests these as eyes.{left,right}, nose, and
+    // arms.{left,right}.{top,middle,bottom}; laid out here as separate
+    // devices (one LEDBoard can only render as a straight row) so the
+    // drop actually looks like a snowman: eyes and nose stacked in the
+    // middle, an arm's 3 LEDs flanking each side at chest height. Left
+    // and right are the snowman's own, so facing it they're mirrored:
+    // arms_left sits on screen-right, arms_right on screen-left.
     components: [
+      { kind: 'ledboard', name: 'eyes', params: { leds: 2, pin1: 23, pin2: 24 }, offset: { x: 60, y: 0 } },
+      { kind: 'led', name: 'nose', params: { pin: 25 }, offset: { x: 60, y: 150 } },
       {
-        // in gpiozero's order: eyes (left, right), nose, arms (left
-        // top/middle/bottom, right top/middle/bottom)
         kind: 'ledboard',
-        name: 'snowpi',
-        params: { leds: 9, pin1: 23, pin2: 24, pin3: 25, pin4: 17, pin5: 18, pin6: 22, pin7: 7, pin8: 8, pin9: 9 },
-        offset: { x: 0, y: 0 },
+        name: 'arms_left',
+        params: { leds: 3, pin1: 17, pin2: 18, pin3: 22 },
+        offset: { x: 250, y: 280 },
+      },
+      {
+        kind: 'ledboard',
+        name: 'arms_right',
+        params: { leds: 3, pin1: 7, pin2: 8, pin3: 9 },
+        offset: { x: -150, y: 280 },
       },
     ],
   },
