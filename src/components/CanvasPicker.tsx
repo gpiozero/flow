@@ -86,6 +86,7 @@ export function CanvasPicker({
   const [importText, setImportText] = useState('');
   const [importDragOver, setImportDragOver] = useState(false);
   const importFileInputRef = useRef<HTMLInputElement>(null);
+  const importContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   // Enter/Escape settle the draft themselves, then blur; the blur
   // handler must not commit again — it would run with stale state
@@ -94,6 +95,27 @@ export function CanvasPicker({
 
   // the canvas changed under us (switch/new/delete): show its name
   useEffect(() => setDraft(name), [name]);
+
+  // Closed on an actual click elsewhere, not onBlur: dragging a file in
+  // means switching to a file manager window first, which blurs the
+  // page (OS focus moving outside the DOM) well before any drag
+  // reaches the dropzone — onBlur closed the popover out from under
+  // that every time, which is the bug being fixed here.
+  useEffect(() => {
+    if (!importOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!importContainerRef.current?.contains(e.target as Node)) setImportOpen(false);
+    };
+    const onKeyDown = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape') setImportOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [importOpen]);
 
   // the last trashed entry was restored/expired while the popover was open
   useEffect(() => {
@@ -366,12 +388,7 @@ export function CanvasPicker({
           </div>
         )}
       </div>
-      <div
-        className="combo canvas-import"
-        onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setImportOpen(false);
-        }}
-      >
+      <div className="combo canvas-import" ref={importContainerRef}>
         <button
           className="canvas-import-toggle"
           onClick={() => setImportOpen((o) => !o)}
@@ -381,13 +398,12 @@ export function CanvasPicker({
           Import
         </button>
         {/*
-          Always mounted, regardless of importOpen: opening the native
-          file picker blurs the page (the OS dialog isn't part of the
-          DOM), which closes this popover via onBlur above. If this
-          input only existed inside the conditional block below, that
-          close would unmount it while the dialog was still open, so
-          the change event from picking a file would have nothing to
-          land on — a silent no-op.
+          Always mounted, regardless of importOpen: if it only existed
+          inside the conditional block below, an OS-focus-loss close
+          (see the click-outside effect above) while the native file
+          picker is still open would unmount it mid-selection, so the
+          change event from picking a file would have nothing to land
+          on — a silent no-op.
         */}
         <input
           ref={importFileInputRef}
