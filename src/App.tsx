@@ -683,7 +683,7 @@ function Editor() {
         showWarning('This share link is invalid or corrupted');
         return;
       }
-      const name = untitledCanvasName(listCanvases(), 'shared canvas');
+      const name = untitledCanvasName(listCanvases(), imported.name || 'shared canvas');
       saveCanvas(name, imported.nodes, imported.edges);
       applyCanvas(name);
       showWarning(`Imported shared canvas as "${name}"`);
@@ -736,24 +736,25 @@ function Editor() {
   const [exportSizeWithoutState, setExportSizeWithoutState] = useState(0);
   useEffect(() => {
     let cancelled = false;
-    Promise.all([buildShareParam(nodes, edges, true), buildShareParam(nodes, edges, false)]).then(
-      ([withState, withoutState]) => {
-        if (cancelled) return;
-        setExportSizeWithState(withState.length);
-        setExportSizeWithoutState(withoutState.length);
-      },
-    );
+    Promise.all([
+      buildShareParam(nodes, edges, canvasName, true),
+      buildShareParam(nodes, edges, canvasName, false),
+    ]).then(([withState, withoutState]) => {
+      if (cancelled) return;
+      setExportSizeWithState(withState.length);
+      setExportSizeWithoutState(withoutState.length);
+    });
     return () => {
       cancelled = true;
     };
-  }, [nodes, edges]);
+  }, [nodes, edges, canvasName]);
 
   // Copy a `#canvas=` link encoding the current nodes/edges to the
   // clipboard. The payload is deflate-compressed before base64url —
   // see persist.ts — but a large enough canvas is still refused.
   const exportLink = useCallback(
     async (includeState: boolean) => {
-      const encoded = await encodeSharedCanvas(nodes, edges, includeState);
+      const encoded = await encodeSharedCanvas(nodes, edges, canvasName, includeState);
       if (encoded === SHARE_TOO_LARGE) {
         showWarning('This canvas is too large to share via a link');
         return;
@@ -764,20 +765,20 @@ function Editor() {
         () => showWarning(url),
       );
     },
-    [nodes, edges, showWarning],
+    [nodes, edges, canvasName, showWarning],
   );
 
   // Copy the raw (un-encoded) canvas JSON — no URL length limit, so
   // this is the fallback for a canvas too big to share as a link.
   const exportJson = useCallback(
     (includeState: boolean) => {
-      const json = buildShareJson(nodes, edges, includeState, true);
+      const json = buildShareJson(nodes, edges, canvasName, includeState, true);
       navigator.clipboard.writeText(json).then(
         () => showWarning('Canvas JSON copied to clipboard'),
         () => showWarning('Could not copy to clipboard'),
       );
     },
-    [nodes, edges, showWarning],
+    [nodes, edges, canvasName, showWarning],
   );
 
   // "Download JSON"/"Download Python" open a preview modal (same
@@ -788,7 +789,7 @@ function Editor() {
     (includeState: boolean) => {
       setExportPreview({
         title: 'Canvas JSON',
-        content: buildShareJson(nodes, edges, includeState, true),
+        content: buildShareJson(nodes, edges, canvasName, includeState, true),
         defaultFilename: sanitizeFilename(canvasName),
         extension: '.json',
         mimeType: 'application/json',
@@ -819,7 +820,7 @@ function Editor() {
         showWarning('That JSON is not a valid canvas');
         return false;
       }
-      const name = untitledCanvasName(listCanvases(), 'imported canvas');
+      const name = untitledCanvasName(listCanvases(), imported.name || 'imported canvas');
       saveCanvas(canvasName, nodes, edges);
       saveCanvas(name, imported.nodes, imported.edges);
       applyCanvas(name);

@@ -50,6 +50,11 @@ interface SavedCanvas {
   edges: { id: string; source: string; target: string }[];
 }
 
+/** buildShareJson's shape: a SavedCanvas plus the canvas's name, so import can reuse it */
+interface SharedCanvas extends SavedCanvas {
+  name?: string;
+}
+
 interface TrashEntry {
   canvas: SavedCanvas;
   deletedAt: number;
@@ -144,8 +149,8 @@ export function setCurrentCanvas(name: string): void {
  * legitimately empty one and rejected with a warning instead of
  * silently landing as a blank canvas.
  */
-function isSavedCanvasShape(value: unknown): value is SavedCanvas {
-  const v = value as Partial<SavedCanvas> | null | undefined;
+function isSavedCanvasShape(value: unknown): value is SharedCanvas {
+  const v = value as Partial<SharedCanvas> | null | undefined;
   return !!v && Array.isArray(v.nodes) && Array.isArray(v.edges);
 }
 
@@ -310,14 +315,18 @@ async function inflateFromBase64Url(param: string): Promise<string> {
  * with the node's catalog default on load. `pretty` indents for human
  * reading (Copy raw JSON, Download JSON); the compressed link form
  * always passes false to keep the pre-compression payload compact.
+ * `canvasName` travels along too, so importing lands under the same
+ * name (disambiguated if it's taken) instead of a generic one.
  */
 export function buildShareJson(
   nodes: DeviceFlowNode[],
   edges: Edge[],
+  canvasName: string,
   includeState: boolean,
   pretty = false,
 ): string {
-  const saved: SavedCanvas = {
+  const saved: SharedCanvas = {
+    name: canvasName,
     nodes: nodes.map((n) => {
       if (includeState) return { id: n.id, position: n.position, data: n.data };
       const { state: _state, ...rest } = n.data;
@@ -332,38 +341,44 @@ export function buildShareJson(
 export function buildShareParam(
   nodes: DeviceFlowNode[],
   edges: Edge[],
+  canvasName: string,
   includeState: boolean,
 ): Promise<string> {
-  return deflateToBase64Url(buildShareJson(nodes, edges, includeState));
+  return deflateToBase64Url(buildShareJson(nodes, edges, canvasName, includeState));
 }
 
 /** Encode nodes/edges for a share link; SHARE_TOO_LARGE if it won't fit a URL */
 export async function encodeSharedCanvas(
   nodes: DeviceFlowNode[],
   edges: Edge[],
+  canvasName: string,
   includeState: boolean,
 ): Promise<string | typeof SHARE_TOO_LARGE> {
-  const encoded = await buildShareParam(nodes, edges, includeState);
+  const encoded = await buildShareParam(nodes, edges, canvasName, includeState);
   return encoded.length > SHARE_PARAM_LIMIT ? SHARE_TOO_LARGE : encoded;
 }
 
 /** Decode a `#canvas=` payload; null if it's missing, malformed, or unparseable */
 export async function decodeSharedCanvas(
   param: string,
-): Promise<{ nodes: DeviceFlowNode[]; edges: Edge[] } | null> {
+): Promise<{ nodes: DeviceFlowNode[]; edges: Edge[]; name?: string } | null> {
   try {
     const parsed: unknown = JSON.parse(await inflateFromBase64Url(param));
-    return isSavedCanvasShape(parsed) ? fromSaved(parsed) : null;
+    if (!isSavedCanvasShape(parsed)) return null;
+    return { ...fromSaved(parsed), name: parsed.name };
   } catch {
     return null;
   }
 }
 
 /** Import a canvas from pasted raw JSON (the `buildShareJson` shape); null if unparseable */
-export function importSharedJson(json: string): { nodes: DeviceFlowNode[]; edges: Edge[] } | null {
+export function importSharedJson(
+  json: string,
+): { nodes: DeviceFlowNode[]; edges: Edge[]; name?: string } | null {
   try {
     const parsed: unknown = JSON.parse(json);
-    return isSavedCanvasShape(parsed) ? fromSaved(parsed) : null;
+    if (!isSavedCanvasShape(parsed)) return null;
+    return { ...fromSaved(parsed), name: parsed.name };
   } catch {
     return null;
   }
