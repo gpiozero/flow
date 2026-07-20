@@ -257,27 +257,35 @@ export function nextIdCounter(nodes: DeviceFlowNode[]): number {
 }
 
 /**
- * Sharing a canvas via URL: the SavedCanvas JSON, base64url-encoded into
- * a `#canvas=` fragment (a fragment, not a query param, so it never
- * reaches a server's access logs). No compression or backend storage
- * yet — large canvases are simply refused with SHARE_TOO_LARGE.
+ * Sharing a canvas via URL: the SavedCanvas JSON, deflate-compressed
+ * and then base64url-encoded into a `#canvas=` fragment (a fragment,
+ * not a query param, so it never reaches a server's access logs).
+ * Still a hard ceiling — no backend storage — but compression buys
+ * several times the node count before SHARE_TOO_LARGE kicks in, since
+ * this JSON's repeated keys (`kind`, `position`, `params`, …) compress
+ * well. CompressionStream/DecompressionStream are Promise-based, so
+ * encoding and decoding a share link are both async.
  */
 export const SHARE_PARAM_LIMIT = 1800;
 export const SHARE_TOO_LARGE = Symbol('canvas too large to share via URL');
 
-function base64UrlEncode(s: string): string {
+async function deflateToBase64Url(s: string): Promise<string> {
   const bytes = new TextEncoder().encode(s);
+  const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+  const compressed = new Uint8Array(await new Response(stream).arrayBuffer());
   let binary = '';
-  for (const b of bytes) binary += String.fromCharCode(b);
+  for (const b of compressed) binary += String.fromCharCode(b);
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-function base64UrlDecode(s: string): string {
-  const padded = s.replace(/-/g, '+').replace(/_/g, '/');
+async function inflateFromBase64Url(param: string): Promise<string> {
+  const padded = param.replace(/-/g, '+').replace(/_/g, '/');
   const pad = (4 - (padded.length % 4)) % 4;
   const binary = atob(padded + '='.repeat(pad));
   const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  const decompressed = new Uint8Array(await new Response(stream).arrayBuffer());
+  return new TextDecoder().decode(decompressed);
 }
 
 /**
@@ -306,25 +314,31 @@ export function buildShareJson(
   return JSON.stringify(saved);
 }
 
-/** Base64url-encoded form of buildShareJson, for the `#canvas=` link and its length check */
-export function buildShareParam(nodes: DeviceFlowNode[], edges: Edge[], includeState: boolean): string {
-  return base64UrlEncode(buildShareJson(nodes, edges, includeState));
-}
-
-/** Encode nodes/edges for a share link; SHARE_TOO_LARGE if it won't fit a URL */
-export function encodeSharedCanvas(
+/** Compressed, base64url-encoded form of buildShareJson, for the `#canvas=` link and its length check */
+export function buildShareParam(
   nodes: DeviceFlowNode[],
   edges: Edge[],
   includeState: boolean,
-): string | typeof SHARE_TOO_LARGE {
-  const encoded = buildShareParam(nodes, edges, includeState);
+): Promise<string> {
+  return deflateToBase64Url(buildShareJson(nodes, edges, includeState));
+}
+
+/** Encode nodes/edges for a share link; SHARE_TOO_LARGE if it won't fit a URL */
+export async function encodeSharedCanvas(
+  nodes: DeviceFlowNode[],
+  edges: Edge[],
+  includeState: boolean,
+): Promise<string | typeof SHARE_TOO_LARGE> {
+  const encoded = await buildShareParam(nodes, edges, includeState);
   return encoded.length > SHARE_PARAM_LIMIT ? SHARE_TOO_LARGE : encoded;
 }
 
 /** Decode a `#canvas=` payload; null if it's missing, malformed, or unparseable */
-export function decodeSharedCanvas(param: string): { nodes: DeviceFlowNode[]; edges: Edge[] } | null {
+export async function decodeSharedCanvas(
+  param: string,
+): Promise<{ nodes: DeviceFlowNode[]; edges: Edge[] } | null> {
   try {
-    return fromSaved(JSON.parse(base64UrlDecode(param)));
+    return fromSaved(JSON.parse(await inflateFromBase64Url(param)));
   } catch {
     return null;
   }

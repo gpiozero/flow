@@ -115,26 +115,19 @@ function pinsInUse(nodes: DeviceFlowNode[]): Set<number> {
   return pins;
 }
 
-/** A `#canvas=<payload>` fragment left by a share link, decoded once at startup */
-function readSharedCanvasFromUrl(): { nodes: DeviceFlowNode[]; edges: Edge[] } | null {
+/** The payload of a `#canvas=<payload>` fragment left by a share link, if any */
+function shareHashParam(): string | null {
   const match = /^#canvas=(.+)$/.exec(window.location.hash);
-  return match ? decodeSharedCanvas(match[1]) : null;
+  return match ? match[1] : null;
 }
 
 function Editor() {
-  // A share link takes over the usual "restore the last canvas" startup:
-  // it's imported as a new named canvas instead, and the fragment is
-  // stripped so a refresh doesn't re-import it.
-  const [shareAttempted] = useState(() => /^#canvas=/.test(window.location.hash));
-  const [sharedImport] = useState(readSharedCanvasFromUrl);
   // the current canvas survives reloads: restored once here, saved on
   // change below; the topbar picker switches between named canvases
-  const [canvasName, setCanvasName] = useState(() =>
-    sharedImport ? untitledCanvasName(listCanvases(), 'shared canvas') : currentCanvasName(),
-  );
+  const [canvasName, setCanvasName] = useState(currentCanvasName);
   const [canvasList, setCanvasList] = useState(listCanvases);
   const [trash, setTrash] = useState<TrashedCanvas[]>(listTrash);
-  const [initialCanvas] = useState(() => sharedImport ?? loadCanvas(canvasName));
+  const [initialCanvas] = useState(() => loadCanvas(canvasName));
   const [nodes, setNodes, onNodesChange] = useNodesState<DeviceFlowNode>(initialCanvas.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialCanvas.edges);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -162,23 +155,6 @@ function Editor() {
   }, []);
 
   useEffect(() => () => window.clearTimeout(warningTimer.current), []);
-
-  // Land a share-link import in the canvas store under its new name and
-  // scrub the fragment, so refreshing doesn't re-import it or leak the
-  // payload into browser history entries beyond this one.
-  useEffect(() => {
-    if (!shareAttempted) return;
-    window.history.replaceState(null, '', window.location.pathname + window.location.search);
-    if (!sharedImport) {
-      showWarning('This share link is invalid or corrupted');
-      return;
-    }
-    saveCanvas(canvasName, sharedImport.nodes, sharedImport.edges);
-    setCurrentCanvas(canvasName);
-    setCanvasList(listCanvases());
-    showWarning(`Imported shared canvas as "${canvasName}"`);
-    // mount-only: canvasName/sharedImport/shareAttempted are stable for the app's lifetime
-  }, []);
 
   const { screenToFlowPosition } = useReactFlow();
   const idCounter = useRef(nextIdCounter(initialCanvas.nodes));
@@ -674,6 +650,27 @@ function Editor() {
     [setNodes, setEdges],
   );
 
+  // A share link is imported as a new named canvas once decoded (async,
+  // since the payload is deflate-compressed — see persist.ts); the
+  // fragment is scrubbed immediately so a refresh doesn't re-import it
+  // or leak it into browser history beyond this one entry.
+  useEffect(() => {
+    const param = shareHashParam();
+    if (!param) return;
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    decodeSharedCanvas(param).then((imported) => {
+      if (!imported) {
+        showWarning('This share link is invalid or corrupted');
+        return;
+      }
+      const name = untitledCanvasName(listCanvases(), 'shared canvas');
+      saveCanvas(name, imported.nodes, imported.edges);
+      applyCanvas(name);
+      showWarning(`Imported shared canvas as "${name}"`);
+    });
+    // mount-only
+  }, []);
+
   // Switching saves the outgoing canvas first, so the debounced
   // autosave being cancelled can't lose its last edits.
   const switchCanvas = useCallback(
@@ -711,23 +708,32 @@ function Editor() {
     [canvasName, nodes, edges, showWarning],
   );
 
-  // Encoded share-link size with/without interactive state, so the
-  // picker can show a live size readout as the user toggles the option.
-  const shareSizeWithState = useMemo(
-    () => buildShareParam(nodes, edges, true).length,
-    [nodes, edges],
-  );
-  const shareSizeWithoutState = useMemo(
-    () => buildShareParam(nodes, edges, false).length,
-    [nodes, edges],
-  );
+  // Encoded (compressed) share-link size with/without interactive
+  // state, so the picker can show a live size readout as the user
+  // toggles the option. Compression is async, so this trails a render
+  // behind nodes/edges rather than being a plain useMemo.
+  const [shareSizeWithState, setShareSizeWithState] = useState(0);
+  const [shareSizeWithoutState, setShareSizeWithoutState] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([buildShareParam(nodes, edges, true), buildShareParam(nodes, edges, false)]).then(
+      ([withState, withoutState]) => {
+        if (cancelled) return;
+        setShareSizeWithState(withState.length);
+        setShareSizeWithoutState(withoutState.length);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [nodes, edges]);
 
   // Copy a `#canvas=` link encoding the current nodes/edges to the
-  // clipboard. No compression or backend storage yet, so a large canvas
-  // is simply refused — see SHARE_PARAM_LIMIT in persist.ts.
+  // clipboard. The payload is deflate-compressed before base64url —
+  // see persist.ts — but a large enough canvas is still refused.
   const shareCanvas = useCallback(
-    (includeState: boolean) => {
-      const encoded = encodeSharedCanvas(nodes, edges, includeState);
+    async (includeState: boolean) => {
+      const encoded = await encodeSharedCanvas(nodes, edges, includeState);
       if (encoded === SHARE_TOO_LARGE) {
         showWarning('This canvas is too large to share via a link');
         return;
