@@ -592,9 +592,9 @@ body {
   line-height: 1.35;
 }
 
-.topbar-pi-local-only-todo {
-  font-family: ui-monospace, 'Cascadia Mono', monospace;
-  color: #b08800;
+.topbar-pi-local-only-link {
+  color: var(--c-tools);
+  font-weight: 600;
 }
 
 .pi-dot {

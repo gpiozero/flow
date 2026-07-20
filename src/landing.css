@@ -222,6 +222,19 @@
   margin: 0;
 }
 
+.landing-feature-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c-tools);
+  text-decoration: none;
+}
+
+.landing-feature-link:hover {
+  text-decoration: underline;
+}
+
 .landing-footer {
   margin-top: auto;
   padding: 20px 32px;

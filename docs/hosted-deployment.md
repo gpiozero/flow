@@ -4,10 +4,15 @@
 > described below is real, not hypothetical. `src/pi.ts` exports `isLocalhost()`,
 > and `App.tsx` uses it to swap the Live-mode connect UI for a short explainer
 > when the page isn't on `localhost`/`127.0.0.1`/`[::1]` — see option 2 below. The
-> explainer's "how to run it locally" instructions are a placeholder for now
-> (marked with a `TODO` in `App.tsx`) pending a decision on how the app is
-> actually distributed for local use (git clone? a packaged download? something
-> else?).
+> distribution question is resolved: source stays private, but the build is
+> public. `.github/workflows/deploy.yml` zips the built `dist/` together with
+> `agent/gpio_agent.py` and its README into `dist/gpiozero-flow.zip` on every
+> deploy, so it rides along with the site (`/gpiozero-flow.zip`) with no
+> separate hosting or release process. `vite.config.ts` builds the app as its
+> own HTML entry (`app/index.html`, not client-side routing) specifically so
+> the unzipped copy works from a plain static server — `python3 -m http.server`
+> is enough, no Node/npm needed on the user's machine. Both the landing page
+> and the Live-mode explainer link to it.
 
 Short answer: **not as it stands, if the app were served over HTTPS — and any real
 deployment would be HTTPS.** The blocker is browser mixed-content policy, not networking.

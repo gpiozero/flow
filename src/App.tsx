@@ -1014,11 +1014,9 @@ function Editor() {
           {mode === 'live' && !liveModeAvailable && (
             <div className="topbar-pi-local-only">
               <span>Live mode needs your Pi reachable directly, which a hosted site can't do.</span>
-              {/* TODO: fill in once the local-distribution story (git clone? a
-                  packaged download? something else?) is decided. */}
-              <span className="topbar-pi-local-only-todo">
-                Instructions for running the app locally: coming soon.
-              </span>
+              <a className="topbar-pi-local-only-link" href="/gpiozero-flow.zip">
+                Download the app + agent to run locally →
+              </a>
             </div>
           )}
           {mode === 'live' && liveModeAvailable && (

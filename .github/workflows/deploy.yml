@@ -23,6 +23,13 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+      - name: Bundle a downloadable local copy (built app + agent, no source)
+        run: |
+          mkdir -p release/gpiozero-flow/agent
+          cp -r dist/. release/gpiozero-flow/
+          cp agent/gpio_agent.py agent/README.md release/gpiozero-flow/agent/
+          (cd release && zip -rq ../dist/gpiozero-flow.zip gpiozero-flow)
+
       - name: Deploy over SSH
         env:
           SSH_KEY: ${{ secrets.SSH_KEY }}

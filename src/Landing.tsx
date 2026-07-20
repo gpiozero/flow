@@ -22,7 +22,12 @@ function DemoCircuit() {
   );
 }
 
-const FEATURES = [
+const FEATURES: {
+  color: string;
+  title: string;
+  body: string;
+  link?: { href: string; label: string };
+}[] = [
   {
     color: 'var(--c-inputs)',
     title: 'Drag & drop devices',
@@ -41,7 +46,8 @@ const FEATURES = [
   {
     color: 'var(--c-adc)',
     title: 'Connect to a Pi',
-    body: "Switch to Live and point the app at a Pi's address — the same wiring now drives real GPIO hardware remotely.",
+    body: "Switch to Live and point the app at a Pi's address — the same wiring now drives real GPIO hardware remotely. Browsers block that connection from a hosted site, so this needs a local copy of the app plus the agent running on the Pi.",
+    link: { href: '/gpiozero-flow.zip', label: 'Download the app + agent →' },
   },
 ];
 
@@ -78,6 +84,11 @@ export default function Landing() {
             <span className="landing-feature-dot" style={{ background: f.color }} />
             <h2>{f.title}</h2>
             <p>{f.body}</p>
+            {f.link && (
+              <a className="landing-feature-link" href={f.link.href}>
+                {f.link.label}
+              </a>
+            )}
           </div>
         ))}
       </section>
