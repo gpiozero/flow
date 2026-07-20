@@ -629,6 +629,40 @@ body {
   background: var(--c-panel);
 }
 
+.canvas-switcher-menu li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.combo-option-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.combo-option-delete {
+  flex-shrink: 0;
+  padding: 0 4px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--c-muted);
+  font-size: 13px;
+  line-height: 18px;
+  cursor: pointer;
+  visibility: hidden;
+}
+
+.canvas-switcher-menu li:hover .combo-option-delete {
+  visibility: visible;
+}
+
+.combo-option-delete:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
 .pi-combo-port {
   color: var(--c-muted);
 }

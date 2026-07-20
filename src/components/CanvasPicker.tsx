@@ -13,6 +13,8 @@ interface Props {
   clearDisabled: boolean;
   onDelete: () => void;
   deleteDisabled: boolean;
+  /** delete any canvas from the switcher dropdown, not just the current one */
+  onDeleteCanvas: (name: string) => void;
   /** copy a shareable link for the current canvas to the clipboard */
   onExportLink: (includeState: boolean) => void;
   /** copy the raw canvas JSON — no size limit, the fallback for a link that's too big */
@@ -60,6 +62,7 @@ export function CanvasPicker({
   clearDisabled,
   onDelete,
   deleteDisabled,
+  onDeleteCanvas,
   onExportLink,
   onExportJson,
   onDownloadJson,
@@ -240,7 +243,7 @@ export function CanvasPicker({
           ▾
         </button>
         {open && canvases.length > 0 && (
-          <ul className="combo-menu" role="listbox">
+          <ul className="combo-menu canvas-switcher-menu" role="listbox">
             {canvases.map((c, i) => (
               <li
                 key={c}
@@ -251,8 +254,22 @@ export function CanvasPicker({
                 onClick={() => choose(c)}
                 onMouseEnter={() => setActive(i)}
               >
-                {c}
-                {c === name && <span className="canvas-current"> ✓</span>}
+                <span className="combo-option-label">
+                  {c}
+                  {c === name && <span className="canvas-current"> ✓</span>}
+                </span>
+                <button
+                  type="button"
+                  className="combo-option-delete"
+                  title={`Delete "${c}"`}
+                  aria-label={`Delete canvas "${c}"`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteCanvas(c);
+                  }}
+                >
+                  ×
+                </button>
               </li>
             ))}
           </ul>

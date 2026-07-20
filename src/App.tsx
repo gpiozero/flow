@@ -838,6 +838,20 @@ function Editor() {
     setTrash(listTrash());
   }, [canvasName, applyCanvas]);
 
+  // Delete any canvas from the switcher dropdown, not just the current
+  // one. Deleting the active canvas switches away from it, same as the
+  // toolbar's Delete; deleting any other canvas just drops it from the
+  // list without disturbing what's on screen.
+  const deleteCanvasByName = useCallback(
+    (target: string) => {
+      deleteCanvas(target);
+      if (target === canvasName) applyCanvas(currentCanvasName());
+      else setCanvasList(listCanvases());
+      setTrash(listTrash());
+    },
+    [canvasName, applyCanvas],
+  );
+
   // Bring a trashed canvas back and switch to it, saving the outgoing
   // canvas first like switchCanvas does.
   const restoreFromTrash = useCallback(
@@ -958,6 +972,7 @@ function Editor() {
             clearDisabled={nodes.length === 0}
             onDelete={deleteCurrentCanvas}
             deleteDisabled={canvasList.length < 2 && nodes.length === 0}
+            onDeleteCanvas={deleteCanvasByName}
             onExportLink={exportLink}
             onExportJson={exportJson}
             onDownloadJson={downloadJson}
