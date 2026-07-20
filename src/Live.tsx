@@ -34,7 +34,7 @@ export default function Live() {
       </header>
 
       <main className="live-content">
-        <h1>Run Live mode locally</h1>
+        <h1>Run Flow locally</h1>
         <p className="landing-subtitle">
           Live mode drives a real Pi's GPIO pins from the canvas, over a websocket to{' '}
           <code>agent/gpio_agent.py</code> running on the Pi. Browsers block that websocket from a
