@@ -4,7 +4,15 @@
   flex-direction: column;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--c-text);
-  background: #fff;
+  background-color: #fff;
+  /* blueprint paper: a fine 20px grid plus a bolder 100px grid, same
+     idea as a drafting pad's minor/major rule lines */
+  background-image:
+    linear-gradient(rgba(37, 99, 235, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37, 99, 235, 0.07) 1px, transparent 1px),
+    linear-gradient(rgba(37, 99, 235, 0.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37, 99, 235, 0.14) 1px, transparent 1px);
+  background-size: 20px 20px, 20px 20px, 100px 100px, 100px 100px;
 }
 
 .landing-header {
@@ -13,6 +21,7 @@
   justify-content: space-between;
   padding: 20px 32px;
   border-bottom: 1px solid var(--c-border);
+  background: #fff;
 }
 
 .landing-brand {
@@ -21,32 +30,6 @@
   gap: 8px;
   font-weight: 600;
   font-size: 15px;
-}
-
-/* Header mark: a small always-lit LED, same shape/colour as the real
-   .led-dot.lit node widget in index.css. Purely decorative. */
-
-.landing-mini-led {
-  position: relative;
-  display: inline-block;
-  width: 12px;
-  height: 15px;
-  margin-bottom: 4px;
-  border-radius: 6px 6px 1px 1px;
-  background: #ef4444;
-  border: 1px solid #dc2626;
-  box-shadow: 0 0 6px 1px rgba(239, 68, 68, 0.7);
-}
-
-.landing-mini-led::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: 2px;
-  width: 1px;
-  height: 4px;
-  background: #94a3b8;
-  box-shadow: 5px 0 0 #94a3b8;
 }
 
 /* Hero demo: a bigger, interactive version of the same thing — a
@@ -161,9 +144,13 @@
 
 .landing-hero {
   max-width: 640px;
-  margin: 0 auto;
-  padding: 90px 24px 60px;
+  width: 100%;
+  margin: 40px auto 0;
+  padding: 60px 24px;
   text-align: center;
+  background: #fff;
+  border: 1px solid var(--c-border);
+  border-radius: 14px;
 }
 
 .landing-hero h1 {
@@ -212,6 +199,7 @@
   padding: 18px;
   border: 1px solid var(--c-border);
   border-radius: 10px;
+  background: #fff;
 }
 
 .landing-feature-dot {

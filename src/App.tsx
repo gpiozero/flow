@@ -965,7 +965,10 @@ function Editor() {
     <FlowContext.Provider value={flowContext}>
       <div className="app">
         <header className="topbar">
-          <h1>gpiozero flow</h1>
+          <div className="app-brand">
+            <span className="brand-led" aria-hidden="true" />
+            <h1>gpiozero flow</h1>
+          </div>
           <CanvasPicker
             name={canvasName}
             canvases={canvasList}

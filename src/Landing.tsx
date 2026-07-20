@@ -50,7 +50,7 @@ export default function Landing() {
     <div className="landing">
       <header className="landing-header">
         <div className="landing-brand">
-          <span className="landing-mini-led" aria-hidden="true" />
+          <span className="brand-led" aria-hidden="true" />
           gpiozero flow
         </div>
         <a className="landing-nav-link" href="/app">
