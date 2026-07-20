@@ -488,13 +488,34 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
           </div>
         );
       case 'ledboard': {
-        // _color/_barStyle are visual-only overrides some boards set
-        // (e.g. Pi-LITEr) — not real gpiozero params, so they're never
-        // shown in the config panel or emitted by codegen (both only
-        // look at the catalog's declared param list).
+        // _color/_barStyle/_pairStyle are visual-only overrides some
+        // boards set (e.g. Pi-LITEr, STATUS) — not real gpiozero
+        // params, so they're never shown in the config panel or
+        // emitted by codegen (both only look at the catalog's
+        // declared param list).
         const colorStyle = data.params._color
           ? ({ '--bar-color': String(data.params._color) } as CSSProperties)
           : undefined;
+        if (data.params._pairStyle) {
+          const pairColors = ['red', 'green'];
+          return (
+            <div className="bar-graph-vertical">
+              {Array.from({ length: dynamicPinCount(data.kind, data.params) }, (_, i) => {
+                const brightness = channel(i);
+                const pairColor = pairColors[i] ?? 'red';
+                if (!data.params.pwm)
+                  return (
+                    <div key={i} className={`bar-led-v ${pairColor}${brightness !== 0 ? ' on' : ''}`} />
+                  );
+                return (
+                  <div key={i} className={`bar-led-v ${pairColor}`}>
+                    <div className={`bar-fill-${pairColor}`} style={{ opacity: brightness }} />
+                  </div>
+                );
+              })}
+            </div>
+          );
+        }
         if (data.params._barStyle)
           return (
             <div className="bar-graph" style={colorStyle}>

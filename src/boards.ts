@@ -185,9 +185,70 @@ export const BOARDS: Record<string, BoardSpec> = {
     label: 'STATUS Zero',
     description: 'The Pi Hut: three red/green LED pairs',
     components: [
-      { kind: 'ledboard', name: 'status1', params: { leds: 2, pin1: 4, pin2: 17 }, offset: { x: 0, y: 0 } },
-      { kind: 'ledboard', name: 'status2', params: { leds: 2, pin1: 27, pin2: 22 }, offset: { x: 0, y: 170 } },
-      { kind: 'ledboard', name: 'status3', params: { leds: 2, pin1: 10, pin2: 9 }, offset: { x: 0, y: 340 } },
+      {
+        kind: 'ledboard',
+        name: 'status1',
+        params: { leds: 2, pin1: 4, pin2: 17, _pairStyle: true },
+        offset: { x: 0, y: 0 },
+      },
+      {
+        kind: 'ledboard',
+        name: 'status2',
+        params: { leds: 2, pin1: 27, pin2: 22, _pairStyle: true },
+        offset: { x: 0, y: 170 },
+      },
+      {
+        kind: 'ledboard',
+        name: 'status3',
+        params: { leds: 2, pin1: 10, pin2: 9, _pairStyle: true },
+        offset: { x: 0, y: 340 },
+      },
+    ],
+  },
+  statusboard: {
+    id: 'statusboard',
+    label: 'STATUS',
+    description: 'The Pi Hut: five red/green LED pairs, each with a button',
+    // gpiozero's five labels (one..five) each nest a "lights" LEDBoard
+    // (_order red, green) and a "button"; _pairStyle draws each pair
+    // as a vertical red-over-green bar, matching the physical board.
+    // One column: each button below the last, its lights to its right.
+    components: [
+      { kind: 'button', name: 'one_button', params: { pin: 14 }, offset: { x: 0, y: 0 } },
+      {
+        kind: 'ledboard',
+        name: 'one_lights',
+        params: { leds: 2, pin1: 4, pin2: 17, _pairStyle: true },
+        offset: { x: COL, y: 0 },
+      },
+      { kind: 'button', name: 'two_button', params: { pin: 19 }, offset: { x: 0, y: 170 } },
+      {
+        kind: 'ledboard',
+        name: 'two_lights',
+        params: { leds: 2, pin1: 27, pin2: 22, _pairStyle: true },
+        offset: { x: COL, y: 170 },
+      },
+      { kind: 'button', name: 'three_button', params: { pin: 15 }, offset: { x: 0, y: 340 } },
+      {
+        kind: 'ledboard',
+        name: 'three_lights',
+        params: { leds: 2, pin1: 10, pin2: 9, _pairStyle: true },
+        offset: { x: COL, y: 340 },
+      },
+      { kind: 'button', name: 'four_button', params: { pin: 26 }, offset: { x: 0, y: 510 } },
+      {
+        kind: 'ledboard',
+        name: 'four_lights',
+        params: { leds: 2, pin1: 11, pin2: 5, _pairStyle: true },
+        offset: { x: COL, y: 510 },
+      },
+      { kind: 'button', name: 'five_button', params: { pin: 18 }, offset: { x: 0, y: 680 } },
+      {
+        kind: 'ledboard',
+        name: 'five_lights',
+        params: { leds: 2, pin1: 6, pin2: 13, _pairStyle: true },
+        offset: { x: COL, y: 680 },
+      },
     ],
   },
   ryanteckrobot: {
