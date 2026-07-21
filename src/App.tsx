@@ -13,7 +13,9 @@ import {
 import type {
   Connection,
   Edge,
+  EdgeChange,
   IsValidConnection,
+  NodeChange,
   OnSelectionChangeParams,
 } from '@xyflow/react';
 import type { DragEvent, KeyboardEvent as ReactKeyboardEvent } from 'react';
@@ -82,6 +84,8 @@ import { convertParams, convertTarget } from './convert';
 import { FlowContext } from './store';
 import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
 import { useIsMobile } from './useIsMobile';
+import { useHistory } from './useHistory';
+import type { HistorySnapshot } from './useHistory';
 
 const nodeTypes = { device: DeviceNode };
 const edgeTypes = { wire: WireEdge };
@@ -151,6 +155,14 @@ function Editor() {
   const [initialCanvas] = useState(() => loadCanvas(canvasName));
   const [nodes, setNodes, onNodesChange] = useNodesState<DeviceFlowNode>(initialCanvas.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialCanvas.edges);
+  const {
+    commit: historyCommit,
+    undo: historyUndo,
+    redo: historyRedo,
+    reset: historyReset,
+    canUndo,
+    canRedo,
+  } = useHistory(nodes, edges);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pinoutOpen, setPinoutOpen] = useState(false);
   // "Download JSON"/"Download Python" open this preview modal rather
@@ -270,11 +282,12 @@ function Editor() {
 
   const updateNodeName = useCallback(
     (id: string, name: string) => {
+      historyCommit(`name:${id}`);
       setNodes((ns) =>
         ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, name } } : n)),
       );
     },
-    [setNodes],
+    [setNodes, historyCommit],
   );
 
   // Changing a dynamic-pin device's count param grows or shrinks its
@@ -282,6 +295,7 @@ function Editor() {
   // count is canonicalised to however many pins could be assigned.
   const updateNodeParam = useCallback(
     (id: string, name: string, value: ParamValue) => {
+      historyCommit(`param:${id}:${name}`);
       // new params mean a fresh generator in gpiozero terms: restart
       // the node's queues, delay/filter phases and hysteresis
       resetNodeState(simRef.current, id);
@@ -316,7 +330,7 @@ function Editor() {
         });
       });
     },
-    [setNodes, showWarning],
+    [setNodes, showWarning, historyCommit],
   );
 
   const flowContext = useMemo(
@@ -328,13 +342,14 @@ function Editor() {
   // targets drop their existing wire when a new one is connected.
   const onConnect = useCallback(
     (conn: Connection) => {
+      historyCommit();
       const target = nodes.find((n) => n.id === conn.target);
       const multiInput = target ? SPECS[target.data.kind].multiInput : false;
       setEdges((eds) =>
         addEdge({ ...conn, type: 'wire' }, multiInput ? eds : eds.filter((e) => e.target !== conn.target)),
       );
     },
-    [nodes, setEdges],
+    [nodes, setEdges, historyCommit],
   );
 
   // Reject self-connections, shape mismatches (a tuple wire into a
@@ -446,6 +461,7 @@ function Editor() {
           state: base ? { ...base.state } : defaultState(kind),
         },
       };
+      historyCommit();
       // select the copy: it takes over the selection z-elevation (so it
       // isn't hidden under the still-selected original) and the panel
       if (base) {
@@ -456,7 +472,7 @@ function Editor() {
         setNodes((ns) => [...ns, node]);
       }
     },
-    [nodes, setNodes, showWarning],
+    [nodes, setNodes, showWarning, historyCommit],
   );
 
   // Expand a board recipe: create every component on its fixed pins,
@@ -500,9 +516,10 @@ function Editor() {
           },
         };
       });
+      historyCommit();
       setNodes((ns) => [...ns, ...created]);
     },
-    [nodes, setNodes, showWarning, numbering],
+    [nodes, setNodes, showWarning, numbering, historyCommit],
   );
 
   const onDrop = useCallback(
@@ -573,6 +590,7 @@ function Editor() {
   // id, so its name, position and wires survive.
   const convertNode = useCallback(
     (id: string) => {
+      historyCommit();
       setNodes((ns) =>
         ns.map((n) => {
           if (n.id !== id) return n;
@@ -590,7 +608,7 @@ function Editor() {
         }),
       );
     },
-    [setNodes],
+    [setNodes, historyCommit],
   );
 
   // Split a multi-device component into its constituent devices on the
@@ -624,28 +642,69 @@ function Editor() {
       if (edges.some((e) => e.source === id || e.target === id)) {
         showWarning(`Wires to ${node.data.name} were removed`);
       }
+      historyCommit();
       setNodes((ns) => [...ns.filter((n) => n.id !== id), ...created]);
       setEdges((es) => es.filter((e) => e.source !== id && e.target !== id));
       setSelectedId(null);
     },
-    [nodes, edges, setNodes, setEdges, showWarning],
+    [nodes, edges, setNodes, setEdges, showWarning, historyCommit],
   );
+
+  // Undo/redo restore a past nodes/edges snapshot; selection is derived
+  // from the restored nodes' own `.selected` flags, same as React
+  // Flow's own onSelectionChange would report for that state.
+  const applyHistorySnapshot = useCallback(
+    (snapshot: HistorySnapshot) => {
+      setNodes(snapshot.nodes);
+      setEdges(snapshot.edges);
+      const selected = snapshot.nodes.filter((n) => n.selected);
+      setSelectedId(selected.length === 1 ? selected[0].id : null);
+    },
+    [setNodes, setEdges],
+  );
+
+  const undo = useCallback(() => {
+    const snapshot = historyUndo();
+    if (snapshot) applyHistorySnapshot(snapshot);
+  }, [historyUndo, applyHistorySnapshot]);
+
+  const redo = useCallback(() => {
+    const snapshot = historyRedo();
+    if (snapshot) applyHistorySnapshot(snapshot);
+  }, [historyRedo, applyHistorySnapshot]);
 
   useEffect(() => {
     const liveModalOpen = mode === 'live' && !liveModeAvailable;
     const onKey = (e: KeyboardEvent) => {
-      // leave a modal's own text (the export preview's code block, the
-      // Live mode explainer) copyable
       if (!(e.ctrlKey || e.metaKey) || e.altKey || exportPreview || liveModalOpen) return;
+      const key = e.key.toLowerCase();
+      // Undo/redo take priority over the browser's own per-field undo
+      // (e.g. right after typing a name/param) — our history already
+      // coalesces a field edit into one step, so this is never worse.
+      if (key === 'z' && e.shiftKey) {
+        e.preventDefault();
+        redo();
+        return;
+      }
+      if (key === 'z') {
+        e.preventDefault();
+        undo();
+        return;
+      }
+      if (key === 'y') {
+        e.preventDefault();
+        redo();
+        return;
+      }
       // leave copy/paste alone inside text fields and dropdowns
       const target = e.target as HTMLElement | null;
       if (target?.closest('input, textarea, select, [contenteditable]')) return;
-      if (e.key.toLowerCase() === 'c') copySelected();
-      else if (e.key.toLowerCase() === 'v') pasteClipboard();
+      if (key === 'c') copySelected();
+      else if (key === 'v') pasteClipboard();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [copySelected, pasteClipboard, exportPreview, mode, liveModeAvailable]);
+  }, [copySelected, pasteClipboard, undo, redo, exportPreview, mode, liveModeAvailable]);
 
   const onSelectionChange = useCallback(({ nodes: selected }: OnSelectionChangeParams) => {
     setSelectedId(selected.length === 1 ? selected[0].id : null);
@@ -660,18 +719,22 @@ function Editor() {
     [setNodes],
   );
 
-  // Clearing empties the saved canvas too — it's unrecoverable, so
-  // CanvasPicker confirms with its own popover before calling this.
+  // Clearing empties the saved canvas too — it's unrecoverable via the
+  // trash, so CanvasPicker confirms with its own popover before calling
+  // this; Ctrl+Z still offers a way back in the same session.
   const clearCanvas = useCallback(() => {
+    historyCommit();
     setNodes([]);
     setEdges([]);
     setSelectedId(null);
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, historyCommit]);
 
   // Make a stored canvas the one on screen: fresh simulation state and
   // id counter, nothing selected, and it becomes the current canvas.
+  // Undo history is per-canvas, so switching away resets it.
   const applyCanvas = useCallback(
     (name: string) => {
+      historyReset();
       const loaded = loadCanvas(name);
       simRef.current = createSimState();
       idCounter.current = nextIdCounter(loaded.nodes);
@@ -682,7 +745,7 @@ function Editor() {
       setCurrentCanvas(name);
       setCanvasList(listCanvases());
     },
-    [setNodes, setEdges],
+    [setNodes, setEdges, historyReset],
   );
 
   // A share link is imported as a new named canvas once decoded (async,
@@ -886,9 +949,10 @@ function Editor() {
 
   const onEdgeDoubleClick = useCallback(
     (_: unknown, edge: Edge) => {
+      historyCommit();
       setEdges((eds) => eds.filter((e) => e.id !== edge.id));
     },
-    [setEdges],
+    [setEdges, historyCommit],
   );
 
   // Wires light up while a value is flowing across them.
@@ -931,6 +995,7 @@ function Editor() {
   // order is the only thing simulation/codegen/agent read.
   const moveInput = useCallback(
     (edgeId: string, delta: -1 | 1) => {
+      historyCommit();
       setEdges((es) => {
         const edge = es.find((e) => e.id === edgeId);
         if (!edge) return es;
@@ -948,7 +1013,33 @@ function Editor() {
         return next;
       });
     },
-    [setEdges],
+    [setEdges, historyCommit],
+  );
+
+  // Node drags fire a 'position' change on every pointer-move frame;
+  // only the one where dragging flips true->false (i.e. the start of a
+  // drag, since we want the pre-drag position) should count as an
+  // undoable step, not each intermediate frame. Node removal (Delete
+  // key, the node's own × button) commits immediately.
+  const wasDraggingRef = useRef(false);
+  const onNodesChangeWithHistory = useCallback(
+    (changes: NodeChange<DeviceFlowNode>[]) => {
+      const dragging = changes.some((c) => c.type === 'position' && c.dragging);
+      if (changes.some((c) => c.type === 'remove') || (dragging && !wasDraggingRef.current)) {
+        historyCommit();
+      }
+      wasDraggingRef.current = dragging;
+      onNodesChange(changes);
+    },
+    [onNodesChange, historyCommit],
+  );
+
+  const onEdgesChangeWithHistory = useCallback(
+    (changes: EdgeChange[]) => {
+      if (changes.some((c) => c.type === 'remove')) historyCommit();
+      onEdgesChange(changes);
+    },
+    [onEdgesChange, historyCommit],
   );
 
   // Pins and names used by every node except the selected one, so the
@@ -1004,6 +1095,26 @@ function Editor() {
             trash={trash}
             onRestore={restoreFromTrash}
           />
+          <div className="history-toggle" role="group" aria-label="Undo/redo">
+            <button
+              className="topbar-script"
+              onClick={undo}
+              disabled={!canUndo}
+              title="Undo (Ctrl+Z)"
+              aria-label="Undo"
+            >
+              ↶
+            </button>
+            <button
+              className="topbar-script"
+              onClick={redo}
+              disabled={!canRedo}
+              title="Redo (Ctrl+Shift+Z)"
+              aria-label="Redo"
+            >
+              ↷
+            </button>
+          </div>
           <div className="mode-toggle" role="group" aria-label="Mode">
             <button
               className={mode === 'simulator' ? 'active' : ''}
@@ -1138,8 +1249,8 @@ function Editor() {
               edges={styledEdges}
               nodeTypes={nodeTypes}
               edgeTypes={edgeTypes}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
+              onNodesChange={onNodesChangeWithHistory}
+              onEdgesChange={onEdgesChangeWithHistory}
               onConnect={onConnect}
               isValidConnection={isValidConnection}
               onSelectionChange={onSelectionChange}

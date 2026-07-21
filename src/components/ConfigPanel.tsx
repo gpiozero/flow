@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import {
   LED_COLORS,
@@ -285,6 +285,15 @@ function NameField({
 }) {
   const [draft, setDraft] = useState(node.data.name ?? '');
   const [error, setError] = useState<string | null>(null);
+
+  // Keeps the draft aligned with the committed name when it changes
+  // from outside this field's own typing — e.g. undo/redo restoring a
+  // previous name. A matching value from this field's own onChange is
+  // a no-op here, so it doesn't disturb an in-progress edit.
+  useEffect(() => {
+    setDraft(node.data.name ?? '');
+    setError(null);
+  }, [node.data.name]);
 
   const onChange = (raw: string) => {
     const value = raw.toLowerCase().replace(/[^a-z0-9_]/g, '');

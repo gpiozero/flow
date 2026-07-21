@@ -449,7 +449,7 @@ body {
   cursor: pointer;
 }
 
-.topbar-script:hover {
+.topbar-script:hover:not(:disabled) {
   background: var(--c-panel);
 }
 
@@ -457,6 +457,22 @@ body {
   background: var(--c-text);
   border-color: var(--c-text);
   color: #fff;
+}
+
+.topbar-script:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.history-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.history-toggle .topbar-script {
+  padding: 6px 10px;
+  font-size: 15px;
+  line-height: 1;
 }
 
 /* Pinout overlay: the physical header, two columns of 20 */
