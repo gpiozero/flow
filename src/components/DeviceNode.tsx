@@ -444,6 +444,10 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         );
       case 'servo':
       case 'angularservo': {
+        // NaN means disengaged (initial_value/initial_angle of None, no
+        // source wired) — no pulses being sent, so the horn shows loose
+        // rather than snapped to a position that isn't real
+        const disengaged = Number.isNaN(value);
         // the horn shows the real angle: AngularServo maps -1..1 onto
         // its min_angle..max_angle range, plain Servo onto ±90°
         let angle = value * 90;
@@ -453,9 +457,12 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
           angle = minAngle + ((value + 1) / 2) * (maxAngle - minAngle);
         }
         return (
-          <div className="servo">
+          <div className={`servo${disengaged ? ' disengaged' : ''}`} title={disengaged ? 'disengaged' : undefined}>
             <div className="servo-shaft">
-              <div className="servo-horn" style={{ transform: `rotate(${angle}deg)` }} />
+              <div
+                className="servo-horn"
+                style={disengaged ? undefined : { transform: `rotate(${angle}deg)` }}
+              />
             </div>
           </div>
         );

@@ -175,6 +175,25 @@ export function ConfigPanel({
                   checked={Boolean(value)}
                   onChange={(e) => onChangeParam(node.id, p.name, e.target.checked)}
                 />
+              ) : p.nullable ? (
+                <>
+                  <label className="config-nullable-toggle">
+                    <input
+                      type="checkbox"
+                      checked={value === null}
+                      onChange={(e) => onChangeParam(node.id, p.name, e.target.checked ? null : 0)}
+                    />
+                    disengaged
+                  </label>
+                  <NumberField
+                    value={value === null ? 0 : Number(value)}
+                    min={p.min}
+                    max={p.max}
+                    step={p.step ?? (p.type === 'int' ? 1 : 0.01)}
+                    disabled={value === null}
+                    onChange={(v) => onChangeParam(node.id, p.name, v)}
+                  />
+                </>
               ) : (
                 <NumberField
                   value={Number(value)}
@@ -331,12 +350,14 @@ function NumberField({
   min,
   max,
   step,
+  disabled,
   onChange,
 }: {
   value: number;
   min?: number;
   max?: number;
   step: number;
+  disabled?: boolean;
   onChange: (value: number) => void;
 }) {
   const [draft, setDraft] = useState(String(value));
@@ -371,6 +392,7 @@ function NumberField({
       min={min}
       max={max}
       step={step}
+      disabled={disabled}
       onChange={(e) => onChangeDraft(e.target.value)}
       // abandoning a half-typed value (still just "-", or emptied
       // entirely) reverts the field to the last committed number
@@ -379,3 +401,4 @@ function NumberField({
     />
   );
 }
+

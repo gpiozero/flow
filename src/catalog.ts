@@ -238,6 +238,7 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     params: [
       { name: 'pin', label: 'pin', type: 'pin', default: 12 },
       { name: 'octaves', label: 'octaves', type: 'int', default: 1, min: 1, max: 4 },
+      { name: 'initial_value', label: 'initial_value', type: 'float', default: null, min: -1, max: 1, step: 0.05, nullable: true },
       { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
     ],
   },
@@ -251,7 +252,9 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     hasOutput: true,
     params: [
       { name: 'pin', label: 'pin', type: 'pin', default: 12 },
-      { name: 'initial_value', label: 'initial_value', type: 'float', default: 0, min: -1, max: 1, step: 0.05 },
+      // None means disengaged (no pulses sent, servo free to move) —
+      // distinct from 0, which actively holds the centre position
+      { name: 'initial_value', label: 'initial_value', type: 'float', default: null, min: -1, max: 1, step: 0.05, nullable: true },
       { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
     ],
   },
@@ -265,7 +268,9 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
     hasOutput: true,
     params: [
       { name: 'pin', label: 'pin', type: 'pin', default: 25 },
-      { name: 'initial_angle', label: 'initial_angle', type: 'float', default: 0, step: 1 },
+      // None means disengaged (no pulses sent, servo free to move) —
+      // distinct from an angle of 0, which actively holds that position
+      { name: 'initial_angle', label: 'initial_angle', type: 'float', default: null, step: 1, nullable: true },
       { name: 'min_angle', label: 'min_angle', type: 'float', default: -90, step: 1 },
       { name: 'max_angle', label: 'max_angle', type: 'float', default: 90, step: 1 },
       { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
@@ -497,6 +502,7 @@ export const SPECS: Record<NodeKind, NodeSpec> = {
       { name: 'amber', label: 'amber', type: 'pin', default: 15 },
       { name: 'green', label: 'green', type: 'pin', default: 16 },
       { name: 'pwm', label: 'pwm', type: 'bool', default: false },
+      { name: 'initial_value', label: 'initial_value', type: 'bool', default: false },
       { name: 'source_delay', label: 'source_delay', type: 'float', default: 0.01, min: 0, max: 10, step: 0.01, attr: true },
     ],
   },

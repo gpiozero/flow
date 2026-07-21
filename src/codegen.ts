@@ -5,6 +5,7 @@ import type { PinNumbering } from './pins';
 import type { DeviceFlowNode, NodeKind, ParamSpec, ParamValue } from './types';
 
 export function pyLiteral(value: ParamValue): string {
+  if (value === null) return 'None';
   if (typeof value === 'boolean') return value ? 'True' : 'False';
   if (typeof value === 'string')
     return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
@@ -75,7 +76,11 @@ export function deviceConstructor(
     if (i === 0 && pinCount <= 1 && p.type === 'pin') args.push(pyPin(value, numbering));
     else if (p.positional) {
       if (p.required || value !== p.default) args.push(pyParam(p, value, numbering));
-    } else if (isPin || p.required || value !== p.default)
+    } else if (isPin || p.required || p.nullable || value !== p.default)
+      // nullable params are always spelled out explicitly: their catalog
+      // default (None) may not match gpiozero's own constructor default
+      // (e.g. Servo's is 0.0), so omitting the arg at that default would
+      // silently change what gets constructed
       args.push(`${p.name}=${pyParam(p, value, numbering)}`);
   });
   const className = deviceClassName(node.data.kind, params);

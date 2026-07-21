@@ -1971,6 +1971,18 @@ body {
   transition: transform 0.1s;
 }
 
+/* disengaged (initial_value/initial_angle of None): no pulses being
+   sent, so the horn hangs loose rather than snapping to a position */
+.servo.disengaged {
+  opacity: 0.55;
+}
+
+.servo.disengaged .servo-horn {
+  background: none;
+  border-style: dashed;
+  transform: rotate(12deg);
+}
+
 /* Motor: a spoked wheel spinning clockwise for forward, anticlockwise
    for backward, at a rate proportional to the value */
 
@@ -2277,6 +2289,31 @@ body {
   border-radius: 4px;
   font-family: inherit;
   background: #fff;
+}
+
+.config-nullable-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--c-muted);
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* the number field, when shown, always drops to its own right-aligned
+   line below the label + checkbox row rather than fighting them for
+   space on one line (same flex-basis:100% trick as .config-error);
+   max-width claws it back down from the 100% that basis implies */
+.config-nullable-toggle + input[type='number'] {
+  flex-basis: 100%;
+  max-width: 90px;
+  margin-left: auto;
+}
+
+.config-nullable-toggle + input[type='number']:disabled {
+  color: var(--c-muted);
+  background: var(--c-panel);
 }
 
 .config-value {

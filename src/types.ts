@@ -68,7 +68,10 @@ export type NodeKind =
   | 'random_values'
   | 'ramping_values';
 
-export type ParamValue = number | boolean | string;
+/** null represents gpiozero's `None` — e.g. Servo/TonalBuzzer's
+ * initial_value=None, meaning genuinely disengaged/silent rather than
+ * a numeric value of 0. Only params marked `nullable` ever hold it. */
+export type ParamValue = number | boolean | string | null;
 
 /**
  * What a wire carries: most nodes emit a scalar, but multi-channel
@@ -103,6 +106,13 @@ export interface ParamSpec {
   positional?: boolean;
   /** simulation-only param with no gpiozero equivalent; left out of the code preview */
   omit?: boolean;
+  /**
+   * Can hold `null` (gpiozero's None) as a distinct "disengaged" state
+   * alongside a normal number — renders as a checkbox next to the
+   * number field. Always emitted in codegen (never omitted at its
+   * default), since the underlying gpiozero default may not be None.
+   */
+  nullable?: boolean;
 }
 
 export interface NodeSpec {

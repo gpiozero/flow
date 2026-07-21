@@ -204,12 +204,18 @@ function nodeValue(
       if (inputs.length === 0) return clamp(Number(params.initial_value ?? 0), 0, 1);
       return clamp(toNumber(readSource(node, inputs[0], sourceIds[0], byId, sim, advance)), 0, 1);
     case 'tonalbuzzer':
-      // silent without a source (gpiozero's value None, shown as NaN
-      // here); driven, 0 is the mid tone and ±1 the octave extremes
-      if (inputs.length === 0) return NaN;
+      // 0 is the mid tone and ±1 the octave extremes; initial_value of
+      // None is genuinely silent/disengaged (gpiozero's own default),
+      // shown as NaN same as a wired-but-silent buzzer
+      if (inputs.length === 0)
+        return params.initial_value === null ? NaN : clamp(Number(params.initial_value), -1, 1);
       return clamp(toNumber(readSource(node, inputs[0], sourceIds[0], byId, sim, advance)), -1, 1);
     case 'servo':
-      if (inputs.length === 0) return clamp(Number(params.initial_value ?? 0), -1, 1);
+      // initial_value of None means disengaged (no pulses sent) rather
+      // than a numeric position — reported as NaN so the horn shows as
+      // detached instead of snapping to a position that isn't real
+      if (inputs.length === 0)
+        return params.initial_value === null ? NaN : clamp(Number(params.initial_value), -1, 1);
       return clamp(toNumber(readSource(node, inputs[0], sourceIds[0], byId, sim, advance)), -1, 1);
     case 'ledbargraph': {
       const v =
@@ -224,6 +230,8 @@ function nodeValue(
     }
     case 'angularservo': {
       if (inputs.length === 0) {
+        // None means disengaged, same as plain Servo — reported as NaN
+        if (params.initial_angle === null) return NaN;
         // mirror AngularServo's initial_angle -> Servo value conversion
         const minAngle = Number(params.min_angle);
         const angularRange = Number(params.max_angle) - minAngle;
@@ -253,8 +261,9 @@ function nodeValue(
     }
     case 'trafficlights': {
       // boolean LEDs: any truthy channel value lights that lamp;
-      // with pwm=True the lamps are PWMLEDs and dim fractionally
-      if (rawInputs.length === 0) return [0, 0, 0];
+      // with pwm=True the lamps are PWMLEDs and dim fractionally.
+      // Unwired, initial_value sets the whole bank, like LEDBoard.
+      if (rawInputs.length === 0) return Array(3).fill(params.initial_value ? 1 : 0);
       const v = readSource(node, rawInputs[0], sourceIds[0], byId, sim, advance);
       return channels(v, 3).map((c) => (params.pwm ? clamp(c, 0, 1) : c !== 0 ? 1 : 0));
     }
