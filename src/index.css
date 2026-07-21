@@ -459,6 +459,14 @@ body {
   color: #fff;
 }
 
+/* higher specificity than the plain :hover rule above (it has an
+   extra class + :not()), so an active button stays legible on hover
+   instead of the light hover background showing through white text */
+.topbar-script.active:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--c-text) 85%, #fff);
+  border-color: var(--c-text);
+}
+
 .topbar-script:disabled {
   opacity: 0.4;
   cursor: default;
