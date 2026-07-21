@@ -176,13 +176,12 @@ export function ConfigPanel({
                   onChange={(e) => onChangeParam(node.id, p.name, e.target.checked)}
                 />
               ) : (
-                <input
-                  type="number"
+                <NumberField
                   value={Number(value)}
                   min={p.min}
                   max={p.max}
                   step={p.step ?? (p.type === 'int' ? 1 : 0.01)}
-                  onChange={(e) => onChangeParam(node.id, p.name, Number(e.target.value))}
+                  onChange={(v) => onChangeParam(node.id, p.name, v)}
                 />
               )}
             </label>
@@ -318,5 +317,65 @@ function NameField({
       />
       {error && <span className="config-error">{error}</span>}
     </label>
+  );
+}
+
+// A plain controlled <input type="number"> snaps back to the last
+// committed value the instant the field is cleared or holds a bare
+// "-" (Number('') and Number('-') are 0/NaN), which stops a negative
+// or decimal number ever being typed. Keeping the in-progress text in
+// local state (only committing once it parses) lets the field pass
+// through those intermediate states.
+function NumberField({
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  value: number;
+  min?: number;
+  max?: number;
+  step: number;
+  onChange: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  const onChangeDraft = (raw: string) => {
+    const parsed = Number(raw);
+    if (raw === '' || raw === '-' || Number.isNaN(parsed)) {
+      setDraft(raw);
+      return;
+    }
+    // clamp to the field's declared range (e.g. source_delay can't go
+    // negative) - out-of-range digits still type through up to this
+    // point, so a bound is enforced the moment a full number parses,
+    // not just once the field is abandoned. Setting the clamped text
+    // directly (rather than leaving it to the value-prop resync
+    // effect) matters when the clamp lands back on the value already
+    // committed — the prop wouldn't change, so that effect wouldn't
+    // otherwise fire to overwrite the out-of-range text still on screen.
+    const clamped = min !== undefined && parsed < min ? min : max !== undefined && parsed > max ? max : parsed;
+    setDraft(clamped === parsed ? raw : String(clamped));
+    onChange(clamped);
+  };
+
+  return (
+    <input
+      type="number"
+      value={draft}
+      min={min}
+      max={max}
+      step={step}
+      onChange={(e) => onChangeDraft(e.target.value)}
+      // abandoning a half-typed value (still just "-", or emptied
+      // entirely) reverts the field to the last committed number
+      // rather than leaving it stuck invalid
+      onBlur={() => setDraft(String(value))}
+    />
   );
 }
