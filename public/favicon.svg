@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 30">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.2" />
+    </filter>
+  </defs>
+  <ellipse cx="12" cy="12" rx="11" ry="13" fill="#ef4444" opacity="0.55" filter="url(#glow)" />
+  <path
+    d="M12,0 A10,10 0 0 1 22,10 L22,21 A3,3 0 0 1 19,24 L5,24 A3,3 0 0 1 2,21 L2,10 A10,10 0 0 1 12,0 Z"
+    fill="#ef4444"
+    stroke="#dc2626"
+  />
+  <rect x="6" y="24" width="2" height="6" fill="#94a3b8" />
+  <rect x="14" y="24" width="2" height="6" fill="#94a3b8" />
+</svg>
