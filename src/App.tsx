@@ -1216,7 +1216,12 @@ function Editor() {
           </button>
         </header>
         {mode === 'live' && !liveModeAvailable && (
-          <LiveModeModal onClose={() => changeMode('simulator')} />
+          <LiveModeModal
+            onClose={() => changeMode('simulator')}
+            nodes={nodes}
+            edges={edges}
+            canvasName={canvasName}
+          />
         )}
         {exportPreview && (
           <ExportPreviewModal

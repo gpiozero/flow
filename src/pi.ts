@@ -20,6 +20,10 @@ export function liveModeSupported(): boolean {
 const STORAGE_KEY = 'gpio-webapp.pi-address';
 const DEFAULT_HOST = 'raspberrypi.local';
 export const DEFAULT_PORT = '8765';
+/** Default port for the *web app* itself when it's served from the Pi
+ * (python3 -m http.server 8000 — see docs/hosted-deployment.md option 1),
+ * as distinct from DEFAULT_PORT, the agent's websocket port. */
+export const DEFAULT_APP_PORT = '8000';
 const HISTORY_MAX = 6;
 
 export interface HistoryEntry {
