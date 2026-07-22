@@ -55,27 +55,7 @@ import type { BoardSpec } from './boards';
 import { pinDisplay } from './pins';
 import type { PinNumbering } from './pins';
 import { splitParts } from './split';
-import {
-  buildShareJson,
-  buildShareParam,
-  currentCanvasName,
-  decodeSharedCanvas,
-  deleteCanvas,
-  encodeSharedCanvas,
-  importSharedJson,
-  listCanvases,
-  listTrash,
-  loadCanvas,
-  nextIdCounter,
-  renameCanvas,
-  restoreCanvas,
-  saveCanvas,
-  SHARE_PARAM_LIMIT,
-  SHARE_TOO_LARGE,
-  setCurrentCanvas,
-  untitledCanvasName,
-} from './persist';
-import type { TrashedCanvas } from './persist';
+import { decodeSharedCanvas, mainCanvasStore, nextIdCounter, playgroundCanvasStore, untitledCanvasName } from './persist';
 import { CanvasPicker } from './components/CanvasPicker';
 import { ExportPreviewModal } from './components/ExportPreviewModal';
 import { LiveModeModal } from './components/LiveModeModal';
@@ -86,6 +66,9 @@ import type { DeviceFlowNode, NodeKind, ParamValue } from './types';
 import { useIsMobile } from './useIsMobile';
 import { useHistory } from './useHistory';
 import type { HistorySnapshot } from './useHistory';
+import { useCanvasManager } from './useCanvasManager';
+import type { ExportPreview } from './useCanvasManager';
+import { sanitizeFilename } from './useCanvasManager';
 
 const nodeTypes = { device: DeviceNode };
 const edgeTypes = { wire: WireEdge };
@@ -170,41 +153,35 @@ function shareHashParam(): string | null {
   return match ? match[1] : null;
 }
 
-/** A canvas name, trimmed to characters safe to use verbatim as a filename stem */
-function sanitizeFilename(name: string): string {
-  return name.trim().replace(/[^a-z0-9_-]+/gi, '_') || 'canvas';
-}
-
-interface ExportPreview {
-  title: string;
-  content: string;
-  defaultFilename: string;
-  extension: string;
-  mimeType: string;
-  /** module names a filename mustn't collide with, e.g. ['signal', 'gpiozero'] for a .py export */
-  reservedNames?: string[];
-}
-
 function Editor() {
   const isMobile = useIsMobile();
 
-  // the current canvas survives reloads: restored once here, saved on
-  // change below; the topbar picker switches between named canvases
-  const [canvasName, setCanvasName] = useState(currentCanvasName);
-  const [canvasList, setCanvasList] = useState(listCanvases);
-  const [trash, setTrash] = useState<TrashedCanvas[]>(listTrash);
-  const [initialCanvas] = useState(() => loadCanvas(canvasName));
+  // The current canvas survives reloads: restored once here, saved on
+  // change (see useCanvasManager); the topbar picker switches between
+  // named canvases. Simulator/Live and Playground each have their own
+  // independent named-canvas store (see persist.ts) so a canvas built
+  // in Playground — no pin restrictions, possibly duplicate/missing
+  // pins — can never surface half-valid in Simulator or Live.
+  const [initialCanvas] = useState(() =>
+    mainCanvasStore.loadCanvas(mainCanvasStore.currentCanvasName()),
+  );
   const [nodes, setNodes, onNodesChange] = useNodesState<DeviceFlowNode>(initialCanvas.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialCanvas.edges);
   const history = useHistory(nodes, edges);
-  // Playground is a free-form scratch canvas: no pin/channel collision
-  // checks, kept in memory for the session (never saved, never loaded
-  // from a named canvas), separate from the nodes/edges above but with
-  // its own undo/redo just the same.
-  const [pgNodes, setPgNodes, onPgNodesChange] = useNodesState<DeviceFlowNode>([]);
-  const [pgEdges, setPgEdges, onPgEdgesChange] = useEdgesState<Edge>([]);
+  const idCounter = useRef(nextIdCounter(initialCanvas.nodes));
+  const sim = useSimulation(nodes, edges);
+
+  const [initialPgCanvas] = useState(() =>
+    playgroundCanvasStore.loadCanvas(playgroundCanvasStore.currentCanvasName()),
+  );
+  const [pgNodes, setPgNodes, onPgNodesChange] = useNodesState<DeviceFlowNode>(
+    initialPgCanvas.nodes,
+  );
+  const [pgEdges, setPgEdges, onPgEdgesChange] = useEdgesState<Edge>(initialPgCanvas.edges);
   const pgHistory = useHistory(pgNodes, pgEdges);
-  const pgIdCounter = useRef(0);
+  const pgIdCounter = useRef(nextIdCounter(initialPgCanvas.nodes));
+  const pgSim = useSimulation(pgNodes, pgEdges);
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pinoutOpen, setPinoutOpen] = useState(false);
   // "Download JSON"/"Download Python" open this preview modal rather
@@ -213,7 +190,8 @@ function Editor() {
   const [exportPreview, setExportPreview] = useState<ExportPreview | null>(null);
   // Pins are stored as BCM ints throughout (params, pin assignment,
   // the Pi wire format); the numbering only changes how they're shown
-  // and how generated code spells them (17 vs 'BOARD11').
+  // and how generated code spells them (17 vs 'BOARD11'). Playground
+  // doesn't show pins at all, so this toggle is hidden there.
   const [numbering, setNumbering] = useState<PinNumbering>(() =>
     localStorage.getItem('gpio-webapp.numbering') === 'board' ? 'board' : 'bcm',
   );
@@ -235,23 +213,6 @@ function Editor() {
   useEffect(() => () => window.clearTimeout(warningTimer.current), []);
 
   const { screenToFlowPosition } = useReactFlow();
-  const idCounter = useRef(nextIdCounter(initialCanvas.nodes));
-
-  useEffect(() => {
-    const timer = setTimeout(() => saveCanvas(canvasName, nodes, edges), 300);
-    return () => clearTimeout(timer);
-  }, [canvasName, nodes, edges]);
-
-  // Trashed canvases expire on their own (see persist.ts); poll now
-  // and then occasionally so a long-idle tab's trash badge/list still
-  // reflects entries that have aged out.
-  useEffect(() => {
-    const interval = setInterval(() => setTrash(listTrash()), 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const sim = useSimulation(nodes, edges);
-  const pgSim = useSimulation(pgNodes, pgEdges);
 
   const pi = usePiLink(nodes, edges, showWarning);
   // ws:// is blocked as mixed content on a page loaded over https — see
@@ -288,10 +249,10 @@ function Editor() {
   );
 
   // Whichever canvas is on screen: the named Simulator/Live canvas, or
-  // the in-memory Playground one. Everything below that edits nodes,
-  // edges, undo history or the simulation goes through these so the
-  // same handlers work for both — only pin/channel assignment branches
-  // on the mode.
+  // Playground's own, separately-named one. Everything below that edits
+  // nodes, edges, undo history or the simulation goes through these so
+  // the same handlers work for both — only pin/channel assignment
+  // branches on the mode.
   const canvasNodes = isPlayground ? pgNodes : nodes;
   const canvasEdges = isPlayground ? pgEdges : edges;
   const setCanvasNodes = isPlayground ? setPgNodes : setNodes;
@@ -377,8 +338,8 @@ function Editor() {
   );
 
   const flowContext = useMemo(
-    () => ({ values: canvasValues, updateNodeState, numbering }),
-    [canvasValues, updateNodeState, numbering],
+    () => ({ values: canvasValues, updateNodeState, numbering, hidePins: isPlayground }),
+    [canvasValues, updateNodeState, numbering, isPlayground],
   );
 
   // Setting a device's source replaces any previous source, so single-input
@@ -789,50 +750,73 @@ function Editor() {
 
   // Clearing empties the saved canvas too — it's unrecoverable via the
   // trash, so CanvasPicker confirms with its own popover before calling
-  // this; Ctrl+Z still offers a way back in the same session. Only ever
-  // called for the named canvas (CanvasPicker is hidden in Playground),
-  // so this uses the real canvas's own history, not the canvas-aware alias.
-  const clearCanvas = useCallback(() => {
+  // this; Ctrl+Z still offers a way back in the same session. Simulator
+  // and Playground each clear their own canvas/history — CanvasPicker
+  // is rendered once per mode, bound to the matching pair below.
+  const clearMainCanvas = useCallback(() => {
     history.commit();
     setNodes([]);
     setEdges([]);
     setSelectedId(null);
   }, [setNodes, setEdges, history.commit]);
 
-  // Playground isn't saved anywhere, but clearing it is still the only
-  // way back to a blank slate short of reloading the page.
-  const clearPlayground = useCallback(() => {
-    if (!window.confirm('Clear the playground? All nodes and wires will be removed.')) return;
+  const clearPlaygroundCanvas = useCallback(() => {
     pgHistory.commit();
     setPgNodes([]);
     setPgEdges([]);
     setSelectedId(null);
   }, [setPgNodes, setPgEdges, pgHistory.commit]);
 
-  // Make a stored canvas the one on screen: fresh simulation state and
-  // id counter, nothing selected, and it becomes the current canvas.
-  // Undo history is per-canvas, so switching away resets it. Always the
-  // named canvas — Playground doesn't participate in canvas switching.
-  const applyCanvas = useCallback(
-    (name: string) => {
-      history.reset();
-      const loaded = loadCanvas(name);
-      sim.reset();
-      idCounter.current = nextIdCounter(loaded.nodes);
-      setNodes(loaded.nodes);
-      setEdges(loaded.edges);
-      setSelectedId(null);
-      setCanvasName(name);
-      setCurrentCanvas(name);
-      setCanvasList(listCanvases());
-    },
-    [setNodes, setEdges, history.reset, sim.reset],
-  );
+  // Named-canvas management (switch/new/rename/delete/trash, autosave,
+  // share link/JSON export/import) — one bound to the Simulator/Live
+  // store, one to Playground's own, entirely separate store.
+  const mainCanvas = useCanvasManager({
+    store: mainCanvasStore,
+    nodes,
+    edges,
+    setNodes,
+    setEdges,
+    setSelectedId,
+    idCounterRef: idCounter,
+    historyReset: history.reset,
+    simReset: sim.reset,
+    showWarning,
+    setExportPreview,
+  });
 
-  // A share link is imported as a new named canvas once decoded (async,
-  // since the payload is deflate-compressed — see persist.ts); the
-  // fragment is scrubbed immediately so a refresh doesn't re-import it
-  // or leak it into browser history beyond this one entry.
+  const playgroundCanvas = useCanvasManager({
+    store: playgroundCanvasStore,
+    nodes: pgNodes,
+    edges: pgEdges,
+    setNodes: setPgNodes,
+    setEdges: setPgEdges,
+    setSelectedId,
+    idCounterRef: pgIdCounter,
+    historyReset: pgHistory.reset,
+    simReset: pgSim.reset,
+    showWarning,
+    setExportPreview,
+  });
+
+  // Python export only makes sense where pins are real — Playground
+  // doesn't offer it, so this stays outside useCanvasManager and is
+  // wired to the Simulator/Live CanvasPicker only.
+  const downloadPython = useCallback(() => {
+    setExportPreview({
+      title: 'Python script',
+      content: generateScript(nodes, edges, numbering),
+      defaultFilename: sanitizeFilename(mainCanvas.canvasName),
+      extension: '.py',
+      mimeType: 'text/x-python',
+      reservedNames: scriptModules(nodes),
+    });
+  }, [nodes, edges, numbering, mainCanvas.canvasName]);
+
+  // A share link is imported as a new named Simulator/Live canvas once
+  // decoded (async, since the payload is deflate-compressed — see
+  // persist.ts); the fragment is scrubbed immediately so a refresh
+  // doesn't re-import it or leak it into browser history beyond this
+  // one entry.
   useEffect(() => {
     const param = shareHashParam();
     if (!param) return;
@@ -842,191 +826,13 @@ function Editor() {
         showWarning('This share link is invalid or corrupted');
         return;
       }
-      const name = untitledCanvasName(listCanvases(), imported.name || 'shared canvas');
-      saveCanvas(name, imported.nodes, imported.edges);
-      applyCanvas(name);
+      const name = untitledCanvasName(mainCanvasStore.listCanvases(), imported.name || 'shared canvas');
+      mainCanvasStore.saveCanvas(name, imported.nodes, imported.edges);
+      mainCanvas.applyCanvas(name);
       showWarning(`Imported shared canvas as "${name}"`);
     });
     // mount-only
   }, []);
-
-  // Switching saves the outgoing canvas first, so the debounced
-  // autosave being cancelled can't lose its last edits.
-  const switchCanvas = useCallback(
-    (name: string) => {
-      if (name === canvasName) return;
-      saveCanvas(canvasName, nodes, edges);
-      applyCanvas(name);
-    },
-    [canvasName, nodes, edges, applyCanvas],
-  );
-
-  // A new canvas starts as "untitled canvas" (numbered if taken); the
-  // picker selects the name so typing immediately renames it.
-  const newCanvas = useCallback(() => {
-    const name = untitledCanvasName(listCanvases());
-    saveCanvas(canvasName, nodes, edges);
-    saveCanvas(name, [], []);
-    applyCanvas(name);
-  }, [canvasName, nodes, edges, applyCanvas]);
-
-  // Rename the current canvas to whatever was typed in the picker;
-  // refused (with a toast) only when the name is already taken.
-  const renameCurrentCanvas = useCallback(
-    (name: string): boolean => {
-      if (listCanvases().includes(name)) {
-        showWarning(`A canvas named "${name}" already exists`);
-        return false;
-      }
-      saveCanvas(canvasName, nodes, edges);
-      renameCanvas(canvasName, name);
-      setCanvasName(name);
-      setCanvasList(listCanvases());
-      return true;
-    },
-    [canvasName, nodes, edges, showWarning],
-  );
-
-  // Encoded (compressed) share-link size with/without interactive
-  // state, so the picker can show a live size readout as the user
-  // toggles the option. Compression is async, so this trails a render
-  // behind nodes/edges rather than being a plain useMemo.
-  const [exportSizeWithState, setExportSizeWithState] = useState(0);
-  const [exportSizeWithoutState, setExportSizeWithoutState] = useState(0);
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      buildShareParam(nodes, edges, canvasName, true),
-      buildShareParam(nodes, edges, canvasName, false),
-    ]).then(([withState, withoutState]) => {
-      if (cancelled) return;
-      setExportSizeWithState(withState.length);
-      setExportSizeWithoutState(withoutState.length);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [nodes, edges, canvasName]);
-
-  // Copy a `#canvas=` link encoding the current nodes/edges to the
-  // clipboard. The payload is deflate-compressed before base64url —
-  // see persist.ts — but a large enough canvas is still refused.
-  const exportLink = useCallback(
-    async (includeState: boolean) => {
-      const encoded = await encodeSharedCanvas(nodes, edges, canvasName, includeState);
-      if (encoded === SHARE_TOO_LARGE) {
-        showWarning('This canvas is too large to share via a link');
-        return;
-      }
-      const url = `${window.location.origin}${window.location.pathname}#canvas=${encoded}`;
-      navigator.clipboard.writeText(url).then(
-        () => showWarning('Shareable link copied to clipboard'),
-        () => showWarning(url),
-      );
-    },
-    [nodes, edges, canvasName, showWarning],
-  );
-
-  // Copy the raw (un-encoded) canvas JSON — no URL length limit, so
-  // this is the fallback for a canvas too big to share as a link.
-  const exportJson = useCallback(
-    (includeState: boolean) => {
-      const json = buildShareJson(nodes, edges, canvasName, includeState, true);
-      navigator.clipboard.writeText(json).then(
-        () => showWarning('Canvas JSON copied to clipboard'),
-        () => showWarning('Could not copy to clipboard'),
-      );
-    },
-    [nodes, edges, canvasName, showWarning],
-  );
-
-  // "Download JSON"/"Download Python" open a preview modal (same
-  // payload as "Copy raw JSON", or the equivalent gpiozero .py script)
-  // rather than downloading straight away, so the file can be checked
-  // and renamed first.
-  const downloadJson = useCallback(
-    (includeState: boolean) => {
-      setExportPreview({
-        title: 'Canvas JSON',
-        content: buildShareJson(nodes, edges, canvasName, includeState, true),
-        defaultFilename: sanitizeFilename(canvasName),
-        extension: '.json',
-        mimeType: 'application/json',
-      });
-    },
-    [nodes, edges, canvasName],
-  );
-
-  const downloadPython = useCallback(() => {
-    setExportPreview({
-      title: 'Python script',
-      content: generateScript(nodes, edges, numbering),
-      defaultFilename: sanitizeFilename(canvasName),
-      extension: '.py',
-      mimeType: 'text/x-python',
-      reservedNames: scriptModules(nodes),
-    });
-  }, [nodes, edges, numbering, canvasName]);
-
-  // Import a canvas from pasted JSON (the counterpart to "copy raw
-  // JSON"): lands as a new named canvas, current canvas saved first.
-  // Returns whether the paste was valid, so the picker knows to clear
-  // its textarea and close.
-  const importCanvasJson = useCallback(
-    (json: string): boolean => {
-      const imported = importSharedJson(json);
-      if (!imported) {
-        showWarning('That JSON is not a valid canvas');
-        return false;
-      }
-      const name = untitledCanvasName(listCanvases(), imported.name || 'imported canvas');
-      saveCanvas(canvasName, nodes, edges);
-      saveCanvas(name, imported.nodes, imported.edges);
-      applyCanvas(name);
-      return true;
-    },
-    [canvasName, nodes, edges, applyCanvas, showWarning],
-  );
-
-  // No confirm dialog: the canvas lands in the trash (see persist.ts)
-  // rather than being dropped immediately, so an accidental click is
-  // recoverable — the trash button next to Delete is the way back.
-  const deleteCurrentCanvas = useCallback(() => {
-    deleteCanvas(canvasName);
-    applyCanvas(currentCanvasName());
-    setTrash(listTrash());
-  }, [canvasName, applyCanvas]);
-
-  // Delete any canvas from the switcher dropdown, not just the current
-  // one. Deleting the active canvas switches away from it, same as the
-  // toolbar's Delete; deleting any other canvas just drops it from the
-  // list without disturbing what's on screen.
-  const deleteCanvasByName = useCallback(
-    (target: string) => {
-      deleteCanvas(target);
-      if (target === canvasName) applyCanvas(currentCanvasName());
-      else setCanvasList(listCanvases());
-      setTrash(listTrash());
-    },
-    [canvasName, applyCanvas],
-  );
-
-  // Bring a trashed canvas back and switch to it, saving the outgoing
-  // canvas first like switchCanvas does.
-  const restoreFromTrash = useCallback(
-    (name: string) => {
-      const restored = restoreCanvas(name);
-      if (!restored) {
-        showWarning(`"${name}" already expired from the trash`);
-        setTrash(listTrash());
-        return;
-      }
-      saveCanvas(canvasName, nodes, edges);
-      applyCanvas(restored);
-      setTrash(listTrash());
-    },
-    [canvasName, nodes, edges, applyCanvas, showWarning],
-  );
 
   const onEdgeDoubleClick = useCallback(
     (_: unknown, edge: Edge) => {
@@ -1159,38 +965,49 @@ function Editor() {
             <h1>gpiozero flow</h1>
           </a>
           {isPlayground ? (
-            <div className="topbar-playground">
-              <span>Playground — not saved</span>
-              <button
-                className="topbar-script"
-                onClick={clearPlayground}
-                disabled={pgNodes.length === 0}
-              >
-                Clear
-              </button>
-            </div>
+            <CanvasPicker
+              name={playgroundCanvas.canvasName}
+              canvases={playgroundCanvas.canvasList}
+              onSwitch={playgroundCanvas.switchCanvas}
+              onRename={playgroundCanvas.renameCurrentCanvas}
+              onNew={playgroundCanvas.newCanvas}
+              onClear={clearPlaygroundCanvas}
+              clearDisabled={pgNodes.length === 0}
+              onDelete={playgroundCanvas.deleteCurrentCanvas}
+              deleteDisabled={playgroundCanvas.canvasList.length < 2 && pgNodes.length === 0}
+              onDeleteCanvas={playgroundCanvas.deleteCanvasByName}
+              onExportLink={playgroundCanvas.exportLink}
+              onExportJson={playgroundCanvas.exportJson}
+              onDownloadJson={playgroundCanvas.downloadJson}
+              exportSizeWithState={playgroundCanvas.exportSizeWithState}
+              exportSizeWithoutState={playgroundCanvas.exportSizeWithoutState}
+              exportLimit={playgroundCanvas.exportLimit}
+              onImport={playgroundCanvas.importCanvasJson}
+              trash={playgroundCanvas.trash}
+              onRestore={playgroundCanvas.restoreFromTrash}
+            />
           ) : (
             <CanvasPicker
-              name={canvasName}
-              canvases={canvasList}
-              onSwitch={switchCanvas}
-              onRename={renameCurrentCanvas}
-              onNew={newCanvas}
-              onClear={clearCanvas}
+              name={mainCanvas.canvasName}
+              canvases={mainCanvas.canvasList}
+              onSwitch={mainCanvas.switchCanvas}
+              onRename={mainCanvas.renameCurrentCanvas}
+              onNew={mainCanvas.newCanvas}
+              onClear={clearMainCanvas}
               clearDisabled={nodes.length === 0}
-              onDelete={deleteCurrentCanvas}
-              deleteDisabled={canvasList.length < 2 && nodes.length === 0}
-              onDeleteCanvas={deleteCanvasByName}
-              onExportLink={exportLink}
-              onExportJson={exportJson}
-              onDownloadJson={downloadJson}
+              onDelete={mainCanvas.deleteCurrentCanvas}
+              deleteDisabled={mainCanvas.canvasList.length < 2 && nodes.length === 0}
+              onDeleteCanvas={mainCanvas.deleteCanvasByName}
+              onExportLink={mainCanvas.exportLink}
+              onExportJson={mainCanvas.exportJson}
+              onDownloadJson={mainCanvas.downloadJson}
               onDownloadPython={downloadPython}
-              exportSizeWithState={exportSizeWithState}
-              exportSizeWithoutState={exportSizeWithoutState}
-              exportLimit={SHARE_PARAM_LIMIT}
-              onImport={importCanvasJson}
-              trash={trash}
-              onRestore={restoreFromTrash}
+              exportSizeWithState={mainCanvas.exportSizeWithState}
+              exportSizeWithoutState={mainCanvas.exportSizeWithoutState}
+              exportLimit={mainCanvas.exportLimit}
+              onImport={mainCanvas.importCanvasJson}
+              trash={mainCanvas.trash}
+              onRestore={mainCanvas.restoreFromTrash}
             />
           )}
           <div className="history-toggle" role="group" aria-label="Undo/redo">
@@ -1297,22 +1114,24 @@ function Editor() {
               )}
             </div>
           )}
-          <div className="numbering-toggle" role="group" aria-label="Pin numbering">
-            <button
-              className={numbering === 'bcm' ? 'active' : ''}
-              onClick={() => changeNumbering('bcm')}
-              title="Broadcom GPIO numbers, e.g. 17"
-            >
-              BCM
-            </button>
-            <button
-              className={numbering === 'board' ? 'active' : ''}
-              onClick={() => changeNumbering('board')}
-              title="Physical header pin numbers, e.g. BOARD11"
-            >
-              BOARD
-            </button>
-          </div>
+          {!isPlayground && (
+            <div className="numbering-toggle" role="group" aria-label="Pin numbering">
+              <button
+                className={numbering === 'bcm' ? 'active' : ''}
+                onClick={() => changeNumbering('bcm')}
+                title="Broadcom GPIO numbers, e.g. 17"
+              >
+                BCM
+              </button>
+              <button
+                className={numbering === 'board' ? 'active' : ''}
+                onClick={() => changeNumbering('board')}
+                title="Physical header pin numbers, e.g. BOARD11"
+              >
+                BOARD
+              </button>
+            </div>
+          )}
           {!isPlayground && (
             <button
               className={`topbar-script ${pinoutOpen ? 'active' : ''}`}

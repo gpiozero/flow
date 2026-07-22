@@ -11,6 +11,30 @@ import type { DeviceFlowNode, NodeKind, ParamValue } from '../types';
 // as a momentary hold that releases on pointer-up.
 const TAP_MS = 300;
 
+// Node kinds whose subtitle is only ever a pin readout (as opposed to
+// a channel/count/other reading alongside it) — suppressed entirely in
+// Playground, where pin numbers aren't meaningful.
+const PIN_ONLY_SUBTITLE_KINDS = new Set<NodeKind>([
+  'button',
+  'led',
+  'pwmled',
+  'buzzer',
+  'tonalbuzzer',
+  'servo',
+  'angularservo',
+  'lightsensor',
+  'motionsensor',
+  'linesensor',
+  'motor',
+  'phaseenablemotor',
+  'robot',
+  'phaseenablerobot',
+  'rgbled',
+  'trafficlights',
+  'distancesensor',
+  'rotaryencoder',
+]);
+
 // Rotary encoder detent size: 20 steps per revolution, like a KY-040
 const DEG_PER_STEP = 18;
 
@@ -96,7 +120,7 @@ function MotorWheel({ speed, small }: { speed: number; small?: boolean }) {
 export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<DeviceFlowNode>) {
   const spec = SPECS[data.kind];
   const { deleteElements } = useReactFlow();
-  const { values, updateNodeState, numbering } = useFlow();
+  const { values, updateNodeState, numbering, hidePins } = useFlow();
   const raw = values[id] ?? 0;
   // scalar view for single-channel visuals; tuple set for multi-channel nodes
   const value = Array.isArray(raw) ? (raw[0] ?? 0) : raw;
@@ -613,6 +637,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
   };
 
   const subtitle = () => {
+    if (hidePins && PIN_ONLY_SUBTITLE_KINDS.has(data.kind)) return null;
     const pin = (v: ParamValue | undefined) => pinDisplay(Number(v), numbering);
     switch (data.kind) {
       case 'button':
@@ -678,6 +703,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         return spec.section === 'sources' ? 'artificial source' : 'source tool';
     }
   };
+  const sub = subtitle();
 
   return (
     <div className={`device-node section-${spec.section}${selected ? ' selected' : ''}`}>
@@ -713,7 +739,7 @@ export function DeviceNode({ id, data, selected, isConnectable }: NodeProps<Devi
         </span>
       </div>
       <div className="node-body">{body()}</div>
-      <div className="node-sub">{subtitle()}</div>
+      {sub !== null && <div className="node-sub">{sub}</div>}
       {spec.hasOutput && (
         <Handle id="out" type="source" position={Position.Right} isConnectable={isConnectable} />
       )}

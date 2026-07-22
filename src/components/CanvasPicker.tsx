@@ -21,8 +21,8 @@ interface Props {
   onExportJson: (includeState: boolean) => void;
   /** download the canvas as a .json file */
   onDownloadJson: (includeState: boolean) => void;
-  /** download the canvas as the equivalent gpiozero .py script */
-  onDownloadPython: () => void;
+  /** download the canvas as the equivalent gpiozero .py script; omitted where pin numbers aren't meaningful (Playground) */
+  onDownloadPython?: () => void;
   /** encoded share-link length (chars) with/without interactive state, for the size readout */
   exportSizeWithState: number;
   exportSizeWithoutState: number;
@@ -360,7 +360,11 @@ export function CanvasPicker({
         <button
           className="canvas-export-toggle"
           onClick={() => setExportOpen((o) => !o)}
-          title="Export this canvas as a link, JSON, or a Python script"
+          title={
+            onDownloadPython
+              ? 'Export this canvas as a link, JSON, or a Python script'
+              : 'Export this canvas as a link or JSON'
+          }
           aria-expanded={exportOpen}
         >
           Export
@@ -418,16 +422,18 @@ export function CanvasPicker({
             >
               Download JSON
             </button>
-            <button
-              className="canvas-export-download-python"
-              onClick={() => {
-                onDownloadPython();
-                setExportOpen(false);
-              }}
-              title="Download the equivalent gpiozero Python script"
-            >
-              Download Python
-            </button>
+            {onDownloadPython && (
+              <button
+                className="canvas-export-download-python"
+                onClick={() => {
+                  onDownloadPython();
+                  setExportOpen(false);
+                }}
+                title="Download the equivalent gpiozero Python script"
+              >
+                Download Python
+              </button>
+            )}
           </div>
         )}
       </div>

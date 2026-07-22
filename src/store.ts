@@ -9,12 +9,15 @@ export interface FlowContextValue {
   updateNodeState: (id: string, patch: Record<string, ParamValue>) => void;
   /** how pins are displayed: BCM ints or BOARD header numbers */
   numbering: PinNumbering;
+  /** Playground: pin numbers aren't meaningful there, so nodes don't show them */
+  hidePins: boolean;
 }
 
 export const FlowContext = createContext<FlowContextValue>({
   values: {},
   updateNodeState: () => {},
   numbering: 'bcm',
+  hidePins: false,
 });
 
 export const useFlow = () => useContext(FlowContext);

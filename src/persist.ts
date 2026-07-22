@@ -20,6 +20,7 @@ import type { DeviceFlowNode } from './types';
 const STORE_KEY = 'gpio-webapp.canvases';
 /** pre-naming key holding a single anonymous canvas */
 const LEGACY_KEY = 'gpio-webapp.canvas';
+const PLAYGROUND_STORE_KEY = 'gpio-webapp.playground-canvases';
 
 export const DEFAULT_CANVAS = 'untitled canvas';
 
@@ -69,29 +70,6 @@ interface CanvasStore {
   demosSeeded?: boolean;
 }
 
-/**
- * Add any not-yet-seen DEMO_CANVASES to the store, once ever. After
- * that they're just ordinary canvases: editing, renaming or deleting
- * one behaves exactly like a canvas the user made themselves, and
- * deleting one doesn't bring it back on the next load. A genuinely
- * empty store (no canvases at all yet — a first-ever visit) opens on
- * the first demo instead of a blank canvas; anyone with an existing
- * canvas keeps whichever one was already current.
- */
-function seedDemoCanvases(store: CanvasStore): boolean {
-  if (store.demosSeeded) return false;
-  const hadNoCanvases = Object.keys(store.canvases).length === 0;
-  for (const [name, canvas] of Object.entries(DEMO_CANVASES)) {
-    if (!(name in store.canvases)) store.canvases[name] = canvas;
-  }
-  if (hadNoCanvases) {
-    const firstDemo = Object.keys(DEMO_CANVASES)[0];
-    if (firstDemo) store.current = firstDemo;
-  }
-  store.demosSeeded = true;
-  return true;
-}
-
 export const TRASH_TTL_MS = 24 * 60 * 60 * 1000;
 
 /** Drop trash entries past their TTL; returns whether anything changed */
@@ -107,67 +85,9 @@ function pruneTrash(trash: Record<string, TrashEntry>): boolean {
   return pruned;
 }
 
-function readStore(): CanvasStore {
-  let store: CanvasStore | null = null;
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<CanvasStore>;
-      if (parsed && typeof parsed.canvases === 'object' && parsed.canvases !== null) {
-        const canvases = parsed.canvases;
-        const trash =
-          typeof parsed.trash === 'object' && parsed.trash !== null ? parsed.trash : {};
-        const names = Object.keys(canvases);
-        const current =
-          typeof parsed.current === 'string' && parsed.current in canvases
-            ? parsed.current
-            : names[0] ?? DEFAULT_CANVAS;
-        store = { current, canvases, trash, demosSeeded: parsed.demosSeeded === true };
-      }
-    }
-  } catch {
-    // unreadable store: fall through to legacy/empty
-  }
-  if (!store) {
-    try {
-      const legacy = localStorage.getItem(LEGACY_KEY);
-      if (legacy) {
-        const saved = JSON.parse(legacy) as SavedCanvas;
-        store = { current: DEFAULT_CANVAS, canvases: { [DEFAULT_CANVAS]: saved }, trash: {} };
-      }
-    } catch {
-      // unreadable legacy canvas: start empty
-    }
-  }
-  if (!store) store = { current: DEFAULT_CANVAS, canvases: {}, trash: {} };
-  const prunedTrash = pruneTrash(store.trash);
-  const seededDemos = seedDemoCanvases(store);
-  if (prunedTrash || seededDemos) writeStore(store);
-  return store;
-}
-
-function writeStore(store: CanvasStore): void {
-  localStorage.setItem(STORE_KEY, JSON.stringify(store));
-  localStorage.removeItem(LEGACY_KEY);
-}
-
-export function currentCanvasName(): string {
-  return readStore().current;
-}
-
-/** Saved canvas names, with the (possibly not-yet-saved) current one first */
-export function listCanvases(): string[] {
-  const store = readStore();
-  const names = Object.keys(store.canvases);
-  return names.includes(store.current)
-    ? names
-    : [store.current, ...names];
-}
-
-export function setCurrentCanvas(name: string): void {
-  const store = readStore();
-  store.current = name;
-  writeStore(store);
+export interface TrashedCanvas {
+  name: string;
+  deletedAt: number;
 }
 
 /**
@@ -213,82 +133,212 @@ function fromSaved(saved: unknown): { nodes: DeviceFlowNode[]; edges: Edge[] } {
   return { nodes, edges };
 }
 
-export function loadCanvas(name: string): { nodes: DeviceFlowNode[]; edges: Edge[] } {
-  return fromSaved(readStore().canvases[name]);
-}
-
-export function saveCanvas(name: string, nodes: DeviceFlowNode[], edges: Edge[]): void {
-  const store = readStore();
-  store.canvases[name] = {
-    nodes: nodes.map((n) => ({ id: n.id, position: n.position, data: n.data })),
-    edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
-  };
-  writeStore(store);
-}
-
-export function renameCanvas(from: string, to: string): void {
-  const store = readStore();
-  if (from in store.canvases) {
-    store.canvases[to] = store.canvases[from];
-    delete store.canvases[from];
-  }
-  if (store.current === from) store.current = to;
-  writeStore(store);
+export interface CanvasStoreApi {
+  currentCanvasName: () => string;
+  listCanvases: () => string[];
+  setCurrentCanvas: (name: string) => void;
+  loadCanvas: (name: string) => { nodes: DeviceFlowNode[]; edges: Edge[] };
+  saveCanvas: (name: string, nodes: DeviceFlowNode[], edges: Edge[]) => void;
+  renameCanvas: (from: string, to: string) => void;
+  deleteCanvas: (name: string) => void;
+  listTrash: () => TrashedCanvas[];
+  restoreCanvas: (name: string) => string | null;
 }
 
 /**
- * Move a canvas to the trash (see TRASH_TTL_MS); current falls back to
- * the first remaining name. An empty canvas has nothing worth
- * recovering, so it's dropped outright instead of trashed.
+ * A named-canvas store bound to its own localStorage key, so Simulator
+ * canvases and Playground canvases (see App.tsx) live in entirely
+ * separate namespaces — a canvas edited in Playground (which allows
+ * duplicate/missing pins) can never accidentally surface, half-valid,
+ * in Simulator or Live.
  */
-export function deleteCanvas(name: string): void {
-  const store = readStore();
-  const canvas = store.canvases[name];
-  if (!canvas) return;
-  delete store.canvases[name];
-  if (canvas.nodes.length > 0) {
-    store.trash[name] = { canvas, deletedAt: Date.now() };
-  }
-  if (store.current === name) {
-    store.current = Object.keys(store.canvases)[0] ?? DEFAULT_CANVAS;
-  }
-  writeStore(store);
-}
+function createCanvasStore(options: {
+  storeKey: string;
+  legacyKey?: string;
+  seedDemos?: boolean;
+}): CanvasStoreApi {
+  const { storeKey, legacyKey, seedDemos = false } = options;
 
-export interface TrashedCanvas {
-  name: string;
-  deletedAt: number;
-}
-
-/** Trashed canvases, most recently deleted first */
-export function listTrash(): TrashedCanvas[] {
-  const { trash } = readStore();
-  return Object.entries(trash)
-    .map(([name, entry]) => ({ name, deletedAt: entry.deletedAt }))
-    .sort((a, b) => b.deletedAt - a.deletedAt);
-}
-
-/**
- * Bring a trashed canvas back; renamed with a "(restored)" suffix if
- * its name has since been reused. Returns the name it was restored
- * under, or null if it had already expired out of the trash.
- */
-export function restoreCanvas(name: string): string | null {
-  const store = readStore();
-  const entry = store.trash[name];
-  if (!entry) return null;
-  delete store.trash[name];
-  let restoredName = name;
-  if (restoredName in store.canvases) {
-    restoredName = `${name} (restored)`;
-    for (let i = 2; restoredName in store.canvases; i++) {
-      restoredName = `${name} (restored ${i})`;
+  /**
+   * Add any not-yet-seen DEMO_CANVASES to the store, once ever. After
+   * that they're just ordinary canvases: editing, renaming or deleting
+   * one behaves exactly like a canvas the user made themselves, and
+   * deleting one doesn't bring it back on the next load. A genuinely
+   * empty store (no canvases at all yet — a first-ever visit) opens on
+   * the first demo instead of a blank canvas; anyone with an existing
+   * canvas keeps whichever one was already current.
+   */
+  function seedDemoCanvasesIfEnabled(store: CanvasStore): boolean {
+    if (!seedDemos || store.demosSeeded) return false;
+    const hadNoCanvases = Object.keys(store.canvases).length === 0;
+    for (const [name, canvas] of Object.entries(DEMO_CANVASES)) {
+      if (!(name in store.canvases)) store.canvases[name] = canvas;
     }
+    if (hadNoCanvases) {
+      const firstDemo = Object.keys(DEMO_CANVASES)[0];
+      if (firstDemo) store.current = firstDemo;
+    }
+    store.demosSeeded = true;
+    return true;
   }
-  store.canvases[restoredName] = entry.canvas;
-  writeStore(store);
-  return restoredName;
+
+  function readStore(): CanvasStore {
+    let store: CanvasStore | null = null;
+    try {
+      const raw = localStorage.getItem(storeKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<CanvasStore>;
+        if (parsed && typeof parsed.canvases === 'object' && parsed.canvases !== null) {
+          const canvases = parsed.canvases;
+          const trash =
+            typeof parsed.trash === 'object' && parsed.trash !== null ? parsed.trash : {};
+          const names = Object.keys(canvases);
+          const current =
+            typeof parsed.current === 'string' && parsed.current in canvases
+              ? parsed.current
+              : names[0] ?? DEFAULT_CANVAS;
+          store = { current, canvases, trash, demosSeeded: parsed.demosSeeded === true };
+        }
+      }
+    } catch {
+      // unreadable store: fall through to legacy/empty
+    }
+    if (!store && legacyKey) {
+      try {
+        const legacy = localStorage.getItem(legacyKey);
+        if (legacy) {
+          const saved = JSON.parse(legacy) as SavedCanvas;
+          store = { current: DEFAULT_CANVAS, canvases: { [DEFAULT_CANVAS]: saved }, trash: {} };
+        }
+      } catch {
+        // unreadable legacy canvas: start empty
+      }
+    }
+    if (!store) store = { current: DEFAULT_CANVAS, canvases: {}, trash: {} };
+    const prunedTrash = pruneTrash(store.trash);
+    const seededDemos = seedDemoCanvasesIfEnabled(store);
+    if (prunedTrash || seededDemos) writeStore(store);
+    return store;
+  }
+
+  function writeStore(store: CanvasStore): void {
+    localStorage.setItem(storeKey, JSON.stringify(store));
+    if (legacyKey) localStorage.removeItem(legacyKey);
+  }
+
+  function currentCanvasName(): string {
+    return readStore().current;
+  }
+
+  /** Saved canvas names, with the (possibly not-yet-saved) current one first */
+  function listCanvases(): string[] {
+    const store = readStore();
+    const names = Object.keys(store.canvases);
+    return names.includes(store.current) ? names : [store.current, ...names];
+  }
+
+  function setCurrentCanvas(name: string): void {
+    const store = readStore();
+    store.current = name;
+    writeStore(store);
+  }
+
+  function loadCanvas(name: string): { nodes: DeviceFlowNode[]; edges: Edge[] } {
+    return fromSaved(readStore().canvases[name]);
+  }
+
+  function saveCanvas(name: string, nodes: DeviceFlowNode[], edges: Edge[]): void {
+    const store = readStore();
+    store.canvases[name] = {
+      nodes: nodes.map((n) => ({ id: n.id, position: n.position, data: n.data })),
+      edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
+    };
+    writeStore(store);
+  }
+
+  function renameCanvas(from: string, to: string): void {
+    const store = readStore();
+    if (from in store.canvases) {
+      store.canvases[to] = store.canvases[from];
+      delete store.canvases[from];
+    }
+    if (store.current === from) store.current = to;
+    writeStore(store);
+  }
+
+  /**
+   * Move a canvas to the trash (see TRASH_TTL_MS); current falls back
+   * to the first remaining name. An empty canvas has nothing worth
+   * recovering, so it's dropped outright instead of trashed.
+   */
+  function deleteCanvas(name: string): void {
+    const store = readStore();
+    const canvas = store.canvases[name];
+    if (!canvas) return;
+    delete store.canvases[name];
+    if (canvas.nodes.length > 0) {
+      store.trash[name] = { canvas, deletedAt: Date.now() };
+    }
+    if (store.current === name) {
+      store.current = Object.keys(store.canvases)[0] ?? DEFAULT_CANVAS;
+    }
+    writeStore(store);
+  }
+
+  /** Trashed canvases, most recently deleted first */
+  function listTrash(): TrashedCanvas[] {
+    const { trash } = readStore();
+    return Object.entries(trash)
+      .map(([name, entry]) => ({ name, deletedAt: entry.deletedAt }))
+      .sort((a, b) => b.deletedAt - a.deletedAt);
+  }
+
+  /**
+   * Bring a trashed canvas back; renamed with a "(restored)" suffix if
+   * its name has since been reused. Returns the name it was restored
+   * under, or null if it had already expired out of the trash.
+   */
+  function restoreCanvas(name: string): string | null {
+    const store = readStore();
+    const entry = store.trash[name];
+    if (!entry) return null;
+    delete store.trash[name];
+    let restoredName = name;
+    if (restoredName in store.canvases) {
+      restoredName = `${name} (restored)`;
+      for (let i = 2; restoredName in store.canvases; i++) {
+        restoredName = `${name} (restored ${i})`;
+      }
+    }
+    store.canvases[restoredName] = entry.canvas;
+    writeStore(store);
+    return restoredName;
+  }
+
+  return {
+    currentCanvasName,
+    listCanvases,
+    setCurrentCanvas,
+    loadCanvas,
+    saveCanvas,
+    renameCanvas,
+    deleteCanvas,
+    listTrash,
+    restoreCanvas,
+  };
 }
+
+/** The Simulator/Live named-canvas store: demo-seeded, migrates the pre-naming legacy key */
+export const mainCanvasStore = createCanvasStore({
+  storeKey: STORE_KEY,
+  legacyKey: LEGACY_KEY,
+  seedDemos: true,
+});
+
+/** Playground's own canvas store — no demo seeding, entirely separate from the above */
+export const playgroundCanvasStore = createCanvasStore({
+  storeKey: PLAYGROUND_STORE_KEY,
+});
 
 /** First id counter value that can't collide with a restored node id */
 export function nextIdCounter(nodes: DeviceFlowNode[]): number {
