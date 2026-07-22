@@ -123,6 +123,47 @@ function pinsInUse(nodes: DeviceFlowNode[]): Set<number> {
   return pins;
 }
 
+// The simulation clock runs at 10 steps/s whenever a time-based node is
+// on the canvas, or a device's source_delay is long enough that its
+// next source read must be scheduled. Each tick advances artificial
+// sources and stateful tools; recomputes caused by interaction reuse
+// the current step without advancing. Used once for the main canvas
+// and once for Playground, which has its own independent nodes/edges.
+function useSimulation(nodes: DeviceFlowNode[], edges: Edge[]) {
+  const simRef = useRef(createSimState());
+  const lastTickRef = useRef(-1);
+  const [tick, setTick] = useState(0);
+  const needsClock = useMemo(
+    () =>
+      nodes.some(
+        (n) =>
+          SPECS[n.data.kind].timeBased ||
+          Number(n.data.params.source_delay ?? 0) > TICK_SECONDS,
+      ),
+    [nodes],
+  );
+
+  useEffect(() => {
+    if (!needsClock) return;
+    const interval = setInterval(() => setTick((t) => t + 1), TICK_SECONDS * 1000);
+    return () => clearInterval(interval);
+  }, [needsClock]);
+
+  const values = useMemo(() => {
+    const advance = tick !== lastTickRef.current;
+    lastTickRef.current = tick;
+    if (advance) simRef.current.step++;
+    return computeValues(nodes, edges, simRef.current, advance);
+  }, [nodes, edges, tick]);
+
+  const resetNode = useCallback((id: string) => resetNodeState(simRef.current, id), []);
+  const reset = useCallback(() => {
+    simRef.current = createSimState();
+  }, []);
+
+  return useMemo(() => ({ values, resetNode, reset }), [values, resetNode, reset]);
+}
+
 /** The payload of a `#canvas=<payload>` fragment left by a share link, if any */
 function shareHashParam(): string | null {
   const match = /^#canvas=(.+)$/.exec(window.location.hash);
@@ -155,14 +196,15 @@ function Editor() {
   const [initialCanvas] = useState(() => loadCanvas(canvasName));
   const [nodes, setNodes, onNodesChange] = useNodesState<DeviceFlowNode>(initialCanvas.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialCanvas.edges);
-  const {
-    commit: historyCommit,
-    undo: historyUndo,
-    redo: historyRedo,
-    reset: historyReset,
-    canUndo,
-    canRedo,
-  } = useHistory(nodes, edges);
+  const history = useHistory(nodes, edges);
+  // Playground is a free-form scratch canvas: no pin/channel collision
+  // checks, kept in memory for the session (never saved, never loaded
+  // from a named canvas), separate from the nodes/edges above but with
+  // its own undo/redo just the same.
+  const [pgNodes, setPgNodes, onPgNodesChange] = useNodesState<DeviceFlowNode>([]);
+  const [pgEdges, setPgEdges, onPgEdgesChange] = useEdgesState<Edge>([]);
+  const pgHistory = useHistory(pgNodes, pgEdges);
+  const pgIdCounter = useRef(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pinoutOpen, setPinoutOpen] = useState(false);
   // "Download JSON"/"Download Python" open this preview modal rather
@@ -208,36 +250,8 @@ function Editor() {
     return () => clearInterval(interval);
   }, []);
 
-  // The simulation clock runs at 10 steps/s whenever a time-based node
-  // is on the canvas, or a device's source_delay is long enough that
-  // its next source read must be scheduled. Each tick advances
-  // artificial sources and stateful tools; recomputes caused by
-  // interaction reuse the current step without advancing.
-  const simRef = useRef(createSimState());
-  const lastTickRef = useRef(-1);
-  const [tick, setTick] = useState(0);
-  const needsClock = useMemo(
-    () =>
-      nodes.some(
-        (n) =>
-          SPECS[n.data.kind].timeBased ||
-          Number(n.data.params.source_delay ?? 0) > TICK_SECONDS,
-      ),
-    [nodes],
-  );
-
-  useEffect(() => {
-    if (!needsClock) return;
-    const interval = setInterval(() => setTick((t) => t + 1), TICK_SECONDS * 1000);
-    return () => clearInterval(interval);
-  }, [needsClock]);
-
-  const simValues = useMemo(() => {
-    const advance = tick !== lastTickRef.current;
-    lastTickRef.current = tick;
-    if (advance) simRef.current.step++;
-    return computeValues(nodes, edges, simRef.current, advance);
-  }, [nodes, edges, tick]);
+  const sim = useSimulation(nodes, edges);
+  const pgSim = useSimulation(pgNodes, pgEdges);
 
   const pi = usePiLink(nodes, edges, showWarning);
   // ws:// is blocked as mixed content on a page loaded over https — see
@@ -247,15 +261,18 @@ function Editor() {
 
   // Simulator hides the Pi connection panel entirely; switching away
   // from Live disconnects, so leaving the panel open behind it can't
-  // leave a live link running unseen.
-  const [mode, setMode] = useState<'simulator' | 'live'>('simulator');
+  // leave a live link running unseen. Playground can't be Live either
+  // — it has no pin numbers to drive real hardware with.
+  const [mode, setMode] = useState<'simulator' | 'live' | 'playground'>('simulator');
   const changeMode = useCallback(
-    (m: 'simulator' | 'live') => {
+    (m: 'simulator' | 'live' | 'playground') => {
       setMode(m);
-      if (m === 'simulator' && pi.status !== 'disconnected') pi.disconnect();
+      setSelectedId(null);
+      if (m !== 'live' && pi.status !== 'disconnected') pi.disconnect();
     },
     [pi.status, pi.disconnect],
   );
+  const isPlayground = mode === 'playground';
 
   const connectOnEnter = (e: ReactKeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && pi.status === 'disconnected') pi.connect();
@@ -263,44 +280,66 @@ function Editor() {
 
   // While connected to a Pi, device nodes show real hardware values
   // (tools keep their simulated values — they're anonymous generators
-  // on the Pi, so have nothing to report).
+  // on the Pi, so have nothing to report). Playground never connects
+  // to a Pi, so it's always just its own simulation.
   const values = useMemo(
-    () => (pi.status === 'connected' ? { ...simValues, ...pi.liveValues } : simValues),
-    [simValues, pi.status, pi.liveValues],
+    () => (pi.status === 'connected' ? { ...sim.values, ...pi.liveValues } : sim.values),
+    [sim.values, pi.status, pi.liveValues],
   );
+
+  // Whichever canvas is on screen: the named Simulator/Live canvas, or
+  // the in-memory Playground one. Everything below that edits nodes,
+  // edges, undo history or the simulation goes through these so the
+  // same handlers work for both — only pin/channel assignment branches
+  // on the mode.
+  const canvasNodes = isPlayground ? pgNodes : nodes;
+  const canvasEdges = isPlayground ? pgEdges : edges;
+  const setCanvasNodes = isPlayground ? setPgNodes : setNodes;
+  const setCanvasEdges = isPlayground ? setPgEdges : setEdges;
+  const onCanvasNodesChange = isPlayground ? onPgNodesChange : onNodesChange;
+  const onCanvasEdgesChange = isPlayground ? onPgEdgesChange : onEdgesChange;
+  const canvasIdCounter = isPlayground ? pgIdCounter : idCounter;
+  const canvasResetNode = isPlayground ? pgSim.resetNode : sim.resetNode;
+  const canvasValues = isPlayground ? pgSim.values : values;
+  const canvasHistory = isPlayground ? pgHistory : history;
+  const historyCommit = canvasHistory.commit;
+  const canUndo = canvasHistory.canUndo;
+  const canRedo = canvasHistory.canRedo;
 
   const updateNodeState = useCallback(
     (id: string, patch: Record<string, ParamValue>) => {
-      setNodes((ns) =>
+      setCanvasNodes((ns) =>
         ns.map((n) =>
           n.id === id ? { ...n, data: { ...n.data, state: { ...n.data.state, ...patch } } } : n,
         ),
       );
     },
-    [setNodes],
+    [setCanvasNodes],
   );
 
   const updateNodeName = useCallback(
     (id: string, name: string) => {
       historyCommit(`name:${id}`);
-      setNodes((ns) =>
+      setCanvasNodes((ns) =>
         ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, name } } : n)),
       );
     },
-    [setNodes, historyCommit],
+    [setCanvasNodes, historyCommit],
   );
 
   // Changing a dynamic-pin device's count param grows or shrinks its
   // pin1..pinN params, assigning free pins to new entries. The stored
-  // count is canonicalised to however many pins could be assigned.
+  // count is canonicalised to however many pins could be assigned. In
+  // Playground pins are never checked for collisions, so entries just
+  // cycle through the pin list rather than hunting for a free one.
   const updateNodeParam = useCallback(
     (id: string, name: string, value: ParamValue) => {
       historyCommit(`param:${id}:${name}`);
       // new params mean a fresh generator in gpiozero terms: restart
       // the node's queues, delay/filter phases and hysteresis
-      resetNodeState(simRef.current, id);
-      setNodes((ns) => {
-        const usedPins = pinsInUse(ns);
+      canvasResetNode(id);
+      setCanvasNodes((ns) => {
+        const usedPins = isPlayground ? null : pinsInUse(ns);
         return ns.map((n) => {
           if (n.id !== id) return n;
           const params = { ...n.data.params, [name]: value };
@@ -312,15 +351,19 @@ function Editor() {
             let count = 0;
             for (const key of wanted) {
               if (!(key in params)) {
-                const pin = nextFreePin(usedPins);
-                if (pin === null) {
-                  showWarning(
-                    `Not enough free GPIO pins — ${name} capped at ${count}`,
-                  );
-                  break;
+                if (usedPins) {
+                  const pin = nextFreePin(usedPins);
+                  if (pin === null) {
+                    showWarning(
+                      `Not enough free GPIO pins — ${name} capped at ${count}`,
+                    );
+                    break;
+                  }
+                  params[key] = pin;
+                  usedPins.add(pin);
+                } else {
+                  params[key] = PIN_ASSIGN_ORDER[count % PIN_ASSIGN_ORDER.length];
                 }
-                params[key] = pin;
-                usedPins.add(pin);
               }
               count++;
             }
@@ -330,12 +373,12 @@ function Editor() {
         });
       });
     },
-    [setNodes, showWarning, historyCommit],
+    [setCanvasNodes, showWarning, historyCommit, isPlayground, canvasResetNode],
   );
 
   const flowContext = useMemo(
-    () => ({ values, updateNodeState, numbering }),
-    [values, updateNodeState, numbering],
+    () => ({ values: canvasValues, updateNodeState, numbering }),
+    [canvasValues, updateNodeState, numbering],
   );
 
   // Setting a device's source replaces any previous source, so single-input
@@ -343,27 +386,29 @@ function Editor() {
   const onConnect = useCallback(
     (conn: Connection) => {
       historyCommit();
-      const target = nodes.find((n) => n.id === conn.target);
+      const target = canvasNodes.find((n) => n.id === conn.target);
       const multiInput = target ? SPECS[target.data.kind].multiInput : false;
-      setEdges((eds) =>
+      setCanvasEdges((eds) =>
         addEdge({ ...conn, type: 'wire' }, multiInput ? eds : eds.filter((e) => e.target !== conn.target)),
       );
     },
-    [nodes, setEdges, historyCommit],
+    [canvasNodes, setCanvasEdges, historyCommit],
   );
 
   // Reject self-connections, shape mismatches (a tuple wire into a
   // scalar input or vice versa) and anything that would create a cycle.
+  // These checks stay on in Playground — only pin/channel collisions
+  // are relaxed there.
   const isValidConnection: IsValidConnection<Edge> = useCallback(
     (conn) => {
       const { source, target } = conn;
       if (!source || !target || source === target) return false;
-      const sourceNode = nodes.find((n) => n.id === source);
-      const targetNode = nodes.find((n) => n.id === target);
+      const sourceNode = canvasNodes.find((n) => n.id === source);
+      const targetNode = canvasNodes.find((n) => n.id === target);
       if (!sourceNode || !targetNode) return false;
       if (outputShapeOf(sourceNode.data.kind) !== inputShapeOf(targetNode.data.kind)) return false;
       const adjacency = new Map<string, string[]>();
-      for (const e of edges) {
+      for (const e of canvasEdges) {
         const list = adjacency.get(e.source);
         if (list) list.push(e.target);
         else adjacency.set(e.source, [e.target]);
@@ -379,7 +424,7 @@ function Editor() {
       }
       return true;
     },
-    [nodes, edges],
+    [canvasNodes, canvasEdges],
   );
 
   const onDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
@@ -400,24 +445,32 @@ function Editor() {
       base?: { params: Record<string, ParamValue>; state: Record<string, ParamValue> },
     ) => {
       const params = base ? { ...base.params } : defaultParams(kind);
-      const usedPins = pinsInUse(nodes);
-      const freePins = PIN_ASSIGN_ORDER.length - usedPins.size;
-      const countParam = SPECS[kind].dynamicPins;
-      if (countParam && freePins >= 1 && dynamicPinCount(kind, params) > freePins) {
-        params[countParam] = freePins;
-        showWarning(
-          `Only ${freePins} free GPIO pin${freePins === 1 ? '' : 's'} — ` +
-            `${SPECS[kind].label} created with ${countParam} = ${freePins}`,
-        );
+      // Playground never checks pin/channel availability: dynamic-pin
+      // devices keep their full requested count and pins just cycle
+      // through the pin list instead of hunting for a free one.
+      const usedPins = isPlayground ? null : pinsInUse(canvasNodes);
+      if (usedPins) {
+        const freePins = PIN_ASSIGN_ORDER.length - usedPins.size;
+        const countParam = SPECS[kind].dynamicPins;
+        if (countParam && freePins >= 1 && dynamicPinCount(kind, params) > freePins) {
+          params[countParam] = freePins;
+          showWarning(
+            `Only ${freePins} free GPIO pin${freePins === 1 ? '' : 's'} — ` +
+              `${SPECS[kind].label} created with ${countParam} = ${freePins}`,
+          );
+        }
       }
       const neededPins = requiredPinParams(kind, params);
-      if (neededPins.length > freePins) {
-        showWarning(
-          `${SPECS[kind].label} needs ${neededPins.length} free GPIO ` +
-            `pin${neededPins.length === 1 ? '' : 's'}, but ` +
-            `${freePins === 0 ? 'none are' : freePins === 1 ? 'only 1 is' : `only ${freePins} are`} left`,
-        );
-        return;
+      if (usedPins) {
+        const freePins = PIN_ASSIGN_ORDER.length - usedPins.size;
+        if (neededPins.length > freePins) {
+          showWarning(
+            `${SPECS[kind].label} needs ${neededPins.length} free GPIO ` +
+              `pin${neededPins.length === 1 ? '' : 's'}, but ` +
+              `${freePins === 0 ? 'none are' : freePins === 1 ? 'only 1 is' : `only ${freePins} are`} left`,
+          );
+          return;
+        }
       }
       // drop pin params a copied bar graph no longer needs after shrinking
       if (SPECS[kind].dynamicPins) {
@@ -425,38 +478,46 @@ function Editor() {
           if (/^pin\d+$/.test(key) && !neededPins.includes(key)) delete params[key];
         }
       }
+      let pinIndex = 0;
       for (const name of neededPins) {
-        const pin = nextFreePin(usedPins);
-        if (pin === null) return; // unreachable: checked above
-        params[name] = pin;
-        usedPins.add(pin);
-      }
-      // each ADC kind is one chip, so channel pools are per kind
-      const usedChannels = channelsInUse(nodes.filter((n) => n.data.kind === kind));
-      let channel: number | null = null;
-      for (const p of SPECS[kind].params) {
-        if (p.type !== 'channel') continue;
-        const count = (p.max ?? 7) + 1;
-        channel = nextFreeChannel(usedChannels, count);
-        if (channel === null) {
-          showWarning(
-            `${SPECS[kind].label} needs a free ADC channel, but all ${count} are in use`,
-          );
-          return;
+        if (usedPins) {
+          const pin = nextFreePin(usedPins);
+          if (pin === null) return; // unreachable: checked above
+          params[name] = pin;
+          usedPins.add(pin);
+        } else {
+          params[name] = PIN_ASSIGN_ORDER[pinIndex % PIN_ASSIGN_ORDER.length];
         }
-        params[p.name] = channel;
-        usedChannels.add(channel);
+        pinIndex++;
+      }
+      if (!isPlayground) {
+        // each ADC kind is one chip, so channel pools are per kind
+        const usedChannels = channelsInUse(canvasNodes.filter((n) => n.data.kind === kind));
+        for (const p of SPECS[kind].params) {
+          if (p.type !== 'channel') continue;
+          const count = (p.max ?? 7) + 1;
+          const channel = nextFreeChannel(usedChannels, count);
+          if (channel === null) {
+            showWarning(
+              `${SPECS[kind].label} needs a free ADC channel, but all ${count} are in use`,
+            );
+            return;
+          }
+          params[p.name] = channel;
+          usedChannels.add(channel);
+        }
       }
       // multi-channel ADCs default to e.g. mcp3008_0 so the channel is
       // obvious at a glance; other devices just get the bare kind
-      const nameBase = channel !== null ? `${kind}_${channel}` : kind;
+      const namedChannel = typeof params.channel === 'number' ? params.channel : null;
+      const nameBase = namedChannel !== null ? `${kind}_${namedChannel}` : kind;
       const node: DeviceFlowNode = {
-        id: `${kind}-${idCounter.current++}`,
+        id: `${kind}-${canvasIdCounter.current++}`,
         type: 'device',
         position,
         data: {
           kind,
-          ...(isDevice(kind) ? { name: nextDeviceName(nameBase, namesInUse(nodes)) } : {}),
+          ...(isDevice(kind) ? { name: nextDeviceName(nameBase, namesInUse(canvasNodes)) } : {}),
           params,
           state: base ? { ...base.state } : defaultState(kind),
         },
@@ -467,12 +528,12 @@ function Editor() {
       if (base) {
         node.selected = true;
         setSelectedId(node.id);
-        setNodes((ns) => [...ns.map((n) => (n.selected ? { ...n, selected: false } : n)), node]);
+        setCanvasNodes((ns) => [...ns.map((n) => (n.selected ? { ...n, selected: false } : n)), node]);
       } else {
-        setNodes((ns) => [...ns, node]);
+        setCanvasNodes((ns) => [...ns, node]);
       }
     },
-    [nodes, setNodes, showWarning, historyCommit],
+    [canvasNodes, setCanvasNodes, showWarning, historyCommit, isPlayground, canvasIdCounter],
   );
 
   // Expand a board recipe: create every component on its fixed pins,
@@ -480,32 +541,36 @@ function Editor() {
   // unlike loose components, a board's pins are physically wired.
   const materialiseBoard = useCallback(
     (board: BoardSpec, position: { x: number; y: number }) => {
-      const usedPins = pinsInUse(nodes);
-      const conflicts = new Set<number>();
-      for (const c of board.components) {
-        const params = { ...defaultParams(c.kind), ...c.params };
-        for (const name of requiredPinParams(c.kind, params)) {
-          const pin = Number(params[name]);
-          if (usedPins.has(pin)) conflicts.add(pin);
+      // a board's pins are physically wired and fixed, so Playground
+      // just places it as-is — there's no collision to refuse
+      if (!isPlayground) {
+        const usedPins = pinsInUse(canvasNodes);
+        const conflicts = new Set<number>();
+        for (const c of board.components) {
+          const params = { ...defaultParams(c.kind), ...c.params };
+          for (const name of requiredPinParams(c.kind, params)) {
+            const pin = Number(params[name]);
+            if (usedPins.has(pin)) conflicts.add(pin);
+          }
+        }
+        if (conflicts.size > 0) {
+          const pins = [...conflicts]
+            .sort((a, b) => a - b)
+            .map((p) => pinDisplay(p, numbering))
+            .join(', ');
+          showWarning(
+            `${board.label} needs ${conflicts.size === 1 ? 'pin' : 'pins'} ${pins}, ` +
+              `already in use`,
+          );
+          return;
         }
       }
-      if (conflicts.size > 0) {
-        const pins = [...conflicts]
-          .sort((a, b) => a - b)
-          .map((p) => pinDisplay(p, numbering))
-          .join(', ');
-        showWarning(
-          `${board.label} needs ${conflicts.size === 1 ? 'pin' : 'pins'} ${pins}, ` +
-            `already in use`,
-        );
-        return;
-      }
-      const usedNames = namesInUse(nodes);
+      const usedNames = namesInUse(canvasNodes);
       const created: DeviceFlowNode[] = board.components.map((c) => {
         const name = nextDeviceName(c.name, usedNames);
         usedNames.add(name);
         return {
-          id: `${c.kind}-${idCounter.current++}`,
+          id: `${c.kind}-${canvasIdCounter.current++}`,
           type: 'device',
           position: { x: position.x + c.offset.x, y: position.y + c.offset.y },
           data: {
@@ -517,9 +582,9 @@ function Editor() {
         };
       });
       historyCommit();
-      setNodes((ns) => [...ns, ...created]);
+      setCanvasNodes((ns) => [...ns, ...created]);
     },
-    [nodes, setNodes, showWarning, numbering, historyCommit],
+    [canvasNodes, setCanvasNodes, showWarning, numbering, historyCommit, isPlayground, canvasIdCounter],
   );
 
   const onDrop = useCallback(
@@ -551,7 +616,7 @@ function Editor() {
   const pasteCount = useRef(0);
 
   const copySelected = useCallback(() => {
-    const node = nodes.find((n) => n.id === selectedId);
+    const node = canvasNodes.find((n) => n.id === selectedId);
     if (!node) return;
     clipboardRef.current = {
       kind: node.data.kind,
@@ -560,7 +625,7 @@ function Editor() {
       position: { ...node.position },
     };
     pasteCount.current = 0;
-  }, [nodes, selectedId]);
+  }, [canvasNodes, selectedId]);
 
   const pasteClipboard = useCallback(() => {
     const clip = clipboardRef.current;
@@ -575,7 +640,7 @@ function Editor() {
 
   const duplicateNode = useCallback(
     (id: string) => {
-      const node = nodes.find((n) => n.id === id);
+      const node = canvasNodes.find((n) => n.id === id);
       if (!node) return;
       materialiseNode(
         node.data.kind,
@@ -583,7 +648,7 @@ function Editor() {
         { params: node.data.params, state: node.data.state },
       );
     },
-    [nodes, materialiseNode],
+    [canvasNodes, materialiseNode],
   );
 
   // Convert a node to its related kind (LED <-> PWMLED) in place: same
@@ -591,7 +656,7 @@ function Editor() {
   const convertNode = useCallback(
     (id: string) => {
       historyCommit();
-      setNodes((ns) =>
+      setCanvasNodes((ns) =>
         ns.map((n) => {
           if (n.id !== id) return n;
           const target = convertTarget(n.data.kind);
@@ -608,7 +673,7 @@ function Editor() {
         }),
       );
     },
-    [setNodes, historyCommit],
+    [setCanvasNodes, historyCommit],
   );
 
   // Split a multi-device component into its constituent devices on the
@@ -617,15 +682,15 @@ function Editor() {
   // scalar parts, so they're removed (with a note if there were any).
   const splitNode = useCallback(
     (id: string) => {
-      const node = nodes.find((n) => n.id === id);
+      const node = canvasNodes.find((n) => n.id === id);
       const parts = node && splitParts(node.data);
       if (!node || !parts) return;
-      const usedNames = namesInUse(nodes.filter((n) => n.id !== id));
+      const usedNames = namesInUse(canvasNodes.filter((n) => n.id !== id));
       const created: DeviceFlowNode[] = parts.map((part, i) => {
         const name = nextDeviceName(`${node.data.name}_${part.suffix}`, usedNames);
         usedNames.add(name);
         return {
-          id: `${part.kind}-${idCounter.current++}`,
+          id: `${part.kind}-${canvasIdCounter.current++}`,
           type: 'device',
           position: {
             x: node.position.x + Math.floor(i / 5) * 230,
@@ -639,15 +704,15 @@ function Editor() {
           },
         };
       });
-      if (edges.some((e) => e.source === id || e.target === id)) {
+      if (canvasEdges.some((e) => e.source === id || e.target === id)) {
         showWarning(`Wires to ${node.data.name} were removed`);
       }
       historyCommit();
-      setNodes((ns) => [...ns.filter((n) => n.id !== id), ...created]);
-      setEdges((es) => es.filter((e) => e.source !== id && e.target !== id));
+      setCanvasNodes((ns) => [...ns.filter((n) => n.id !== id), ...created]);
+      setCanvasEdges((es) => es.filter((e) => e.source !== id && e.target !== id));
       setSelectedId(null);
     },
-    [nodes, edges, setNodes, setEdges, showWarning, historyCommit],
+    [canvasNodes, canvasEdges, setCanvasNodes, setCanvasEdges, showWarning, historyCommit, canvasIdCounter],
   );
 
   // Undo/redo restore a past nodes/edges snapshot; selection is derived
@@ -655,23 +720,26 @@ function Editor() {
   // Flow's own onSelectionChange would report for that state.
   const applyHistorySnapshot = useCallback(
     (snapshot: HistorySnapshot) => {
-      setNodes(snapshot.nodes);
-      setEdges(snapshot.edges);
+      setCanvasNodes(snapshot.nodes);
+      setCanvasEdges(snapshot.edges);
       const selected = snapshot.nodes.filter((n) => n.selected);
       setSelectedId(selected.length === 1 ? selected[0].id : null);
     },
-    [setNodes, setEdges],
+    [setCanvasNodes, setCanvasEdges],
   );
 
+  const canvasUndoSnapshot = canvasHistory.undo;
+  const canvasRedoSnapshot = canvasHistory.redo;
+
   const undo = useCallback(() => {
-    const snapshot = historyUndo();
+    const snapshot = canvasUndoSnapshot();
     if (snapshot) applyHistorySnapshot(snapshot);
-  }, [historyUndo, applyHistorySnapshot]);
+  }, [canvasUndoSnapshot, applyHistorySnapshot]);
 
   const redo = useCallback(() => {
-    const snapshot = historyRedo();
+    const snapshot = canvasRedoSnapshot();
     if (snapshot) applyHistorySnapshot(snapshot);
-  }, [historyRedo, applyHistorySnapshot]);
+  }, [canvasRedoSnapshot, applyHistorySnapshot]);
 
   useEffect(() => {
     const liveModalOpen = mode === 'live' && !liveModeAvailable;
@@ -713,30 +781,43 @@ function Editor() {
   // Select a node from outside React Flow (e.g. clicking a pinout pin)
   const selectNode = useCallback(
     (id: string) => {
-      setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === id })));
+      setCanvasNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === id })));
       setSelectedId(id);
     },
-    [setNodes],
+    [setCanvasNodes],
   );
 
   // Clearing empties the saved canvas too — it's unrecoverable via the
   // trash, so CanvasPicker confirms with its own popover before calling
-  // this; Ctrl+Z still offers a way back in the same session.
+  // this; Ctrl+Z still offers a way back in the same session. Only ever
+  // called for the named canvas (CanvasPicker is hidden in Playground),
+  // so this uses the real canvas's own history, not the canvas-aware alias.
   const clearCanvas = useCallback(() => {
-    historyCommit();
+    history.commit();
     setNodes([]);
     setEdges([]);
     setSelectedId(null);
-  }, [setNodes, setEdges, historyCommit]);
+  }, [setNodes, setEdges, history.commit]);
+
+  // Playground isn't saved anywhere, but clearing it is still the only
+  // way back to a blank slate short of reloading the page.
+  const clearPlayground = useCallback(() => {
+    if (!window.confirm('Clear the playground? All nodes and wires will be removed.')) return;
+    pgHistory.commit();
+    setPgNodes([]);
+    setPgEdges([]);
+    setSelectedId(null);
+  }, [setPgNodes, setPgEdges, pgHistory.commit]);
 
   // Make a stored canvas the one on screen: fresh simulation state and
   // id counter, nothing selected, and it becomes the current canvas.
-  // Undo history is per-canvas, so switching away resets it.
+  // Undo history is per-canvas, so switching away resets it. Always the
+  // named canvas — Playground doesn't participate in canvas switching.
   const applyCanvas = useCallback(
     (name: string) => {
-      historyReset();
+      history.reset();
       const loaded = loadCanvas(name);
-      simRef.current = createSimState();
+      sim.reset();
       idCounter.current = nextIdCounter(loaded.nodes);
       setNodes(loaded.nodes);
       setEdges(loaded.edges);
@@ -745,7 +826,7 @@ function Editor() {
       setCurrentCanvas(name);
       setCanvasList(listCanvases());
     },
-    [setNodes, setEdges, historyReset],
+    [setNodes, setEdges, history.reset, sim.reset],
   );
 
   // A share link is imported as a new named canvas once decoded (async,
@@ -950,28 +1031,28 @@ function Editor() {
   const onEdgeDoubleClick = useCallback(
     (_: unknown, edge: Edge) => {
       historyCommit();
-      setEdges((eds) => eds.filter((e) => e.id !== edge.id));
+      setCanvasEdges((eds) => eds.filter((e) => e.id !== edge.id));
     },
-    [setEdges, historyCommit],
+    [setCanvasEdges, historyCommit],
   );
 
   // Wires light up while a value is flowing across them.
   const styledEdges = useMemo(
     () =>
-      edges.map((e) => {
-        const active = anyChannelActive(values[e.source]);
+      canvasEdges.map((e) => {
+        const active = anyChannelActive(canvasValues[e.source]);
         return {
           ...e,
           animated: active,
           style: { stroke: active ? '#2f9e44' : '#94a3b8', strokeWidth: active ? 2 : 1.5 },
         };
       }),
-    [edges, values],
+    [canvasEdges, canvasValues],
   );
 
   const selectedNode = useMemo(
-    () => nodes.find((n) => n.id === selectedId) ?? null,
-    [nodes, selectedId],
+    () => canvasNodes.find((n) => n.id === selectedId) ?? null,
+    [canvasNodes, selectedId],
   );
 
   // The selected node's incoming wires in channel order (= edge array
@@ -979,16 +1060,16 @@ function Editor() {
   // the config panel's reorderable inputs list.
   const selectedInputs = useMemo(() => {
     if (!selectedNode) return [];
-    return edges
+    return canvasEdges
       .filter((e) => e.target === selectedNode.id)
       .map((e) => {
-        const src = nodes.find((n) => n.id === e.source);
+        const src = canvasNodes.find((n) => n.id === e.source);
         return {
           id: e.id,
           label: src ? String(src.data.name ?? SPECS[src.data.kind].label) : '?',
         };
       });
-  }, [edges, nodes, selectedNode]);
+  }, [canvasEdges, canvasNodes, selectedNode]);
 
   // Move one incoming wire up or down among its siblings by swapping
   // the two edges' positions in the global array — their relative
@@ -996,7 +1077,7 @@ function Editor() {
   const moveInput = useCallback(
     (edgeId: string, delta: -1 | 1) => {
       historyCommit();
-      setEdges((es) => {
+      setCanvasEdges((es) => {
         const edge = es.find((e) => e.id === edgeId);
         if (!edge) return es;
         const siblings = es
@@ -1013,7 +1094,7 @@ function Editor() {
         return next;
       });
     },
-    [setEdges, historyCommit],
+    [setCanvasEdges, historyCommit],
   );
 
   // Node drags fire a 'position' change on every pointer-move frame;
@@ -1029,38 +1110,42 @@ function Editor() {
         historyCommit();
       }
       wasDraggingRef.current = dragging;
-      onNodesChange(changes);
+      onCanvasNodesChange(changes);
     },
-    [onNodesChange, historyCommit],
+    [onCanvasNodesChange, historyCommit],
   );
 
   const onEdgesChangeWithHistory = useCallback(
     (changes: EdgeChange[]) => {
       if (changes.some((c) => c.type === 'remove')) historyCommit();
-      onEdgesChange(changes);
+      onCanvasEdgesChange(changes);
     },
-    [onEdgesChange, historyCommit],
+    [onCanvasEdgesChange, historyCommit],
   );
 
   // Pins and names used by every node except the selected one, so the
   // config panel can offer only free pins and reject duplicate names.
+  // Playground never disables a pin/channel as "taken" — only device
+  // names still have to be unique there.
   const takenPins = useMemo(
-    () => pinsInUse(nodes.filter((n) => n.id !== selectedId)),
-    [nodes, selectedId],
+    () => (isPlayground ? new Set<number>() : pinsInUse(canvasNodes.filter((n) => n.id !== selectedId))),
+    [isPlayground, canvasNodes, selectedId],
   );
   const takenNames = useMemo(
-    () => namesInUse(nodes.filter((n) => n.id !== selectedId)),
-    [nodes, selectedId],
+    () => namesInUse(canvasNodes.filter((n) => n.id !== selectedId)),
+    [canvasNodes, selectedId],
   );
   // channels clash only within the same chip kind
   const takenChannels = useMemo(
     () =>
-      channelsInUse(
-        nodes.filter(
-          (n) => n.id !== selectedId && n.data.kind === selectedNode?.data.kind,
-        ),
-      ),
-    [nodes, selectedId, selectedNode],
+      isPlayground
+        ? new Set<number>()
+        : channelsInUse(
+            canvasNodes.filter(
+              (n) => n.id !== selectedId && n.data.kind === selectedNode?.data.kind,
+            ),
+          ),
+    [isPlayground, canvasNodes, selectedId, selectedNode],
   );
 
   if (isMobile) return <MobileNotice />;
@@ -1073,28 +1158,41 @@ function Editor() {
             <span className="brand-led" aria-hidden="true" />
             <h1>gpiozero flow</h1>
           </a>
-          <CanvasPicker
-            name={canvasName}
-            canvases={canvasList}
-            onSwitch={switchCanvas}
-            onRename={renameCurrentCanvas}
-            onNew={newCanvas}
-            onClear={clearCanvas}
-            clearDisabled={nodes.length === 0}
-            onDelete={deleteCurrentCanvas}
-            deleteDisabled={canvasList.length < 2 && nodes.length === 0}
-            onDeleteCanvas={deleteCanvasByName}
-            onExportLink={exportLink}
-            onExportJson={exportJson}
-            onDownloadJson={downloadJson}
-            onDownloadPython={downloadPython}
-            exportSizeWithState={exportSizeWithState}
-            exportSizeWithoutState={exportSizeWithoutState}
-            exportLimit={SHARE_PARAM_LIMIT}
-            onImport={importCanvasJson}
-            trash={trash}
-            onRestore={restoreFromTrash}
-          />
+          {isPlayground ? (
+            <div className="topbar-playground">
+              <span>Playground — not saved</span>
+              <button
+                className="topbar-script"
+                onClick={clearPlayground}
+                disabled={pgNodes.length === 0}
+              >
+                Clear
+              </button>
+            </div>
+          ) : (
+            <CanvasPicker
+              name={canvasName}
+              canvases={canvasList}
+              onSwitch={switchCanvas}
+              onRename={renameCurrentCanvas}
+              onNew={newCanvas}
+              onClear={clearCanvas}
+              clearDisabled={nodes.length === 0}
+              onDelete={deleteCurrentCanvas}
+              deleteDisabled={canvasList.length < 2 && nodes.length === 0}
+              onDeleteCanvas={deleteCanvasByName}
+              onExportLink={exportLink}
+              onExportJson={exportJson}
+              onDownloadJson={downloadJson}
+              onDownloadPython={downloadPython}
+              exportSizeWithState={exportSizeWithState}
+              exportSizeWithoutState={exportSizeWithoutState}
+              exportLimit={SHARE_PARAM_LIMIT}
+              onImport={importCanvasJson}
+              trash={trash}
+              onRestore={restoreFromTrash}
+            />
+          )}
           <div className="history-toggle" role="group" aria-label="Undo/redo">
             <button
               className="topbar-script"
@@ -1129,6 +1227,13 @@ function Editor() {
               title="Connect to a Pi and drive real devices"
             >
               Live
+            </button>
+            <button
+              className={mode === 'playground' ? 'active' : ''}
+              onClick={() => changeMode('playground')}
+              title="Free-form canvas: no pin numbers, no collision checks"
+            >
+              Playground
             </button>
           </div>
           {mode === 'live' && liveModeAvailable && (
@@ -1208,12 +1313,14 @@ function Editor() {
               BOARD
             </button>
           </div>
-          <button
-            className={`topbar-script ${pinoutOpen ? 'active' : ''}`}
-            onClick={() => setPinoutOpen((open) => !open)}
-          >
-            Pinout
-          </button>
+          {!isPlayground && (
+            <button
+              className={`topbar-script ${pinoutOpen ? 'active' : ''}`}
+              onClick={() => setPinoutOpen((open) => !open)}
+            >
+              Pinout
+            </button>
+          )}
         </header>
         {mode === 'live' && !liveModeAvailable && (
           <LiveModeModal onClose={() => changeMode('simulator')} />
@@ -1245,7 +1352,7 @@ function Editor() {
               </div>
             )}
             <ReactFlow
-              nodes={nodes}
+              nodes={canvasNodes}
               edges={styledEdges}
               nodeTypes={nodeTypes}
               edgeTypes={edgeTypes}
@@ -1261,9 +1368,9 @@ function Editor() {
               <Controls />
               <MiniMap />
             </ReactFlow>
-            {pinoutOpen && (
+            {pinoutOpen && !isPlayground && (
               <Pinout
-                nodes={nodes}
+                nodes={canvasNodes}
                 numbering={numbering}
                 onSelectNode={selectNode}
                 onClose={() => setPinoutOpen(false)}

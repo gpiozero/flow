@@ -645,10 +645,16 @@ body {
   font-weight: 600;
 }
 
-.topbar-pi {
+.topbar-pi,
+.topbar-playground {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.topbar-playground span {
+  color: var(--c-muted);
+  font-size: 12px;
 }
 
 .pi-dot {
