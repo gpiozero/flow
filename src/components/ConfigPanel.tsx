@@ -25,6 +25,8 @@ interface Props {
   /** MCP3008 channels used by other nodes; shown disabled in channel dropdowns */
   takenChannels: ReadonlySet<number>;
   numbering: PinNumbering;
+  /** Playground: pin numbers aren't meaningful there, so pin fields are hidden entirely */
+  hidePins: boolean;
   onChangeParam: (id: string, name: string, value: ParamValue) => void;
   onChangeName: (id: string, name: string) => void;
   /** copy this node: same params/state, fresh pins and name */
@@ -45,6 +47,7 @@ export function ConfigPanel({
   takenNames,
   takenChannels,
   numbering,
+  hidePins,
   onChangeParam,
   onChangeName,
   onDuplicate,
@@ -70,6 +73,7 @@ export function ConfigPanel({
 
   const spec = SPECS[node.data.kind];
   const pinNames = requiredPinParams(node.data.kind, node.data.params);
+  const visibleParams = hidePins ? spec.params.filter((p) => p.type !== 'pin') : spec.params;
 
   // A pin dropdown disables pins used by other nodes and by this
   // node's own other pin params (e.g. Motor's forward/backward).
@@ -113,10 +117,10 @@ export function ConfigPanel({
           onChangeName={onChangeName}
         />
       )}
-      {spec.params.length === 0 ? (
+      {visibleParams.length === 0 ? (
         <p className="config-empty">No parameters.</p>
       ) : (
-        spec.params.map((p) => {
+        visibleParams.map((p) => {
           const value = node.data.params[p.name];
           return (
             <label key={p.name} className="config-field">
@@ -208,6 +212,7 @@ export function ConfigPanel({
         })
       )}
       {spec.dynamicPins &&
+        !hidePins &&
         pinNames.map((name) => (
           <label key={name} className="config-field">
             <span>{pinFieldLabel(node.data.params, name)}</span>

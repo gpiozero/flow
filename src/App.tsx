@@ -1202,6 +1202,7 @@ function Editor() {
             takenNames={takenNames}
             takenChannels={takenChannels}
             numbering={numbering}
+            hidePins={isPlayground}
             inputs={selectedInputs}
             onChangeParam={updateNodeParam}
             onChangeName={updateNodeName}
