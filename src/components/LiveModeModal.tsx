@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Edge } from '@xyflow/react';
 import type { DeviceFlowNode } from '../types';
 import { encodeSharedCanvas, SHARE_TOO_LARGE } from '../persist';
-import { DEFAULT_APP_PORT } from '../pi';
+import { DEFAULT_APP_PORT, DEFAULT_HOST } from '../pi';
 
 interface Props {
   onClose: () => void;
@@ -20,15 +20,15 @@ interface StoredAppLink {
 
 function loadStored(): StoredAppLink {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return { host: '', port: DEFAULT_APP_PORT };
+  if (!raw) return { host: DEFAULT_HOST, port: DEFAULT_APP_PORT };
   try {
     const parsed = JSON.parse(raw) as Partial<StoredAppLink>;
     return {
-      host: typeof parsed.host === 'string' ? parsed.host : '',
+      host: typeof parsed.host === 'string' ? parsed.host : DEFAULT_HOST,
       port: typeof parsed.port === 'string' ? parsed.port : DEFAULT_APP_PORT,
     };
   } catch {
-    return { host: '', port: DEFAULT_APP_PORT };
+    return { host: DEFAULT_HOST, port: DEFAULT_APP_PORT };
   }
 }
 
@@ -39,8 +39,10 @@ function loadStored(): StoredAppLink {
  * plain HTTP, where Live mode isn't blocked — so instead of connecting
  * a websocket from here, "Switch to Pi" opens the Pi's own copy of the
  * app with the current canvas attached as a `#canvas=` share link, in a
- * new tab. That's a page navigation, not a connection — the actual
- * websocket "Connect to Pi" happens once you're there.
+ * new tab, plus `&live=1` so it lands straight in Live mode (App.tsx's
+ * share-import effect) instead of Simulator. That's a page navigation,
+ * not a connection — the actual websocket "Connect to Pi" happens once
+ * you're there (host box defaults to raspberrypi.local, same as here).
  */
 export function LiveModeModal({ onClose, nodes, edges, canvasName }: Props) {
   const [link, setLink] = useState(loadStored);
@@ -67,7 +69,7 @@ export function LiveModeModal({ onClose, nodes, edges, canvasName }: Props) {
   const port = link.port.trim() || DEFAULT_APP_PORT;
   const href =
     host && encoded && encoded !== SHARE_TOO_LARGE
-      ? `http://${host}:${port}/app/#canvas=${encoded}`
+      ? `http://${host}:${port}/app/#canvas=${encoded}&live=1`
       : undefined;
 
   return (

@@ -123,10 +123,10 @@ function pinsInUse(nodes: DeviceFlowNode[]): Set<number> {
   return pins;
 }
 
-/** The payload of a `#canvas=<payload>` fragment left by a share link, if any */
-function shareHashParam(): string | null {
-  const match = /^#canvas=(.+)$/.exec(window.location.hash);
-  return match ? match[1] : null;
+/** The payload of a `#canvas=<payload>[&live=1]` fragment left by a share link, if any */
+function shareHashParam(): { canvas: string; live: boolean } | null {
+  const match = /^#canvas=([^&]+)(&live=1)?$/.exec(window.location.hash);
+  return match ? { canvas: match[1], live: Boolean(match[2]) } : null;
 }
 
 /** A canvas name, trimmed to characters safe to use verbatim as a filename stem */
@@ -751,12 +751,14 @@ function Editor() {
   // A share link is imported as a new named canvas once decoded (async,
   // since the payload is deflate-compressed — see persist.ts); the
   // fragment is scrubbed immediately so a refresh doesn't re-import it
-  // or leak it into browser history beyond this one entry.
+  // or leak it into browser history beyond this one entry. The `&live=1`
+  // suffix is how the "Switch to Pi" link (LiveModeModal) asks to land
+  // straight in Live mode instead of Simulator.
   useEffect(() => {
     const param = shareHashParam();
     if (!param) return;
     window.history.replaceState(null, '', window.location.pathname + window.location.search);
-    decodeSharedCanvas(param).then((imported) => {
+    decodeSharedCanvas(param.canvas).then((imported) => {
       if (!imported) {
         showWarning('This share link is invalid or corrupted');
         return;
@@ -764,6 +766,7 @@ function Editor() {
       const name = untitledCanvasName(listCanvases(), imported.name || 'shared canvas');
       saveCanvas(name, imported.nodes, imported.edges);
       applyCanvas(name);
+      if (param.live) setMode('live');
       showWarning(`Imported shared canvas as "${name}"`);
     });
     // mount-only
