@@ -1,24 +1,12 @@
 import './landing.css';
 import './live.css';
 
-const FETCH_ON_PI = `curl -LO https://flow.bennuttall.com/gpiozero-flow.zip
-unzip gpiozero-flow.zip && cd gpiozero-flow`;
+const VENV_SETUP = `python3 -m venv --system-site-packages ~/.virtualenvs/gpiozero-flow
+~/.virtualenvs/gpiozero-flow/bin/pip install gpiozero-flow`;
 
-const INSTALL_WEBSOCKETS = `sudo apt install -y python3-websockets`;
+const START_APP = `~/.virtualenvs/gpiozero-flow/bin/gpiozero-flow`;
 
-const START_APP = `python3 -m http.server 8000`;
-
-const START_AGENT = `cd gpiozero-flow
-python3 agent/gpio_agent.py`;
-
-const SERVE_APP = `unzip gpiozero-flow.zip
-cd gpiozero-flow
-python3 -m http.server 8000`;
-
-const AGENT_INSTALL = `ssh pi 'sudo apt install python3-websockets && mkdir -p ~/gpio-agent'
-scp agent/gpio_agent.py pi:gpio-agent/
-ssh pi 'nohup python3 ~/gpio-agent/gpio_agent.py \\
-        > ~/gpio-agent/agent.log 2>&1 < /dev/null &'`;
+const START_AGENT = `~/.virtualenvs/gpiozero-flow/bin/gpiozero-agent`;
 
 export default function Live() {
   return (
@@ -36,22 +24,29 @@ export default function Live() {
       <main className="live-content">
         <h1>Run Flow locally</h1>
         <p className="landing-subtitle">
-          Live mode drives a real Pi's GPIO pins from the canvas, over a websocket to{' '}
-          <code>agent/gpio_agent.py</code> running on the Pi. Browsers block that websocket from a
-          page served over HTTPS — this hosted site is, so Live mode needs to run another way.
-          There are two ways to do that: serve everything from the Pi itself, or keep the app on
-          your own computer and just run the agent on the Pi.
+          Live mode drives a real Pi's GPIO pins from the canvas, over a websocket to the{' '}
+          <code>gpiozero-agent</code> command running on the Pi. Browsers block that websocket
+          from a page served over HTTPS — this hosted site is, so Live mode needs to run another
+          way. There are two ways to do that: serve everything from the Pi itself, or keep the app
+          on your own computer and just run the agent on the Pi.
         </p>
 
         <div className="live-step">
-          <h2>Download the app + agent</h2>
+          <h2>Install gpiozero-flow</h2>
           <p>
-            A zip of the built app plus <code>gpio_agent.py</code>, rebuilt on every deploy — no
-            source code, no npm install needed.
+            Ships as a pip package — the web app comes pre-built, so no Node/npm needed. Raspberry
+            Pi OS (like most current Linux) refuses a bare <code>pip install</code>, so create a
+            virtualenv first; <code>--system-site-packages</code> picks up the apt-installed
+            gpiozero and its pin factory (lgpio), so real GPIO access works right away:
           </p>
-          <a className="landing-cta landing-cta-download" href="/gpiozero-flow.zip">
-            Download gpiozero-flow.zip ↓
-          </a>
+          <pre className="config-code">
+            <code>{VENV_SETUP}</code>
+          </pre>
+          <p>
+            This installs two commands: <code>gpiozero-flow</code> (serves the web app) and{' '}
+            <code>gpiozero-agent</code> (the GPIO agent). Run it wherever you need either one —
+            once on the Pi covers both setups below.
+          </p>
         </div>
 
         <details className="live-option">
@@ -67,16 +62,9 @@ export default function Live() {
 
           <ol className="live-steps">
             <li>
-              <h3>Fetch the zip and unzip it</h3>
+              <h3>Install gpiozero-flow</h3>
               <pre className="config-code">
-                <code>{FETCH_ON_PI}</code>
-              </pre>
-            </li>
-
-            <li>
-              <h3>Install the agent's dependency</h3>
-              <pre className="config-code">
-                <code>{INSTALL_WEBSOCKETS}</code>
+                <code>{VENV_SETUP}</code>
               </pre>
             </li>
 
@@ -112,19 +100,18 @@ export default function Live() {
             <h2 className="live-option-title">Run it on your computer, connect to the Pi remotely</h2>
           </summary>
           <p className="live-option-intro">
-            Keeps the Pi running just the agent — nothing else to install there beyond{' '}
-            <code>websockets</code>.
+            Keeps the Pi running just the agent — nothing else to install there beyond
+            gpiozero-flow itself.
           </p>
 
           <ol className="live-steps">
             <li>
-              <h3>Serve the app on your computer</h3>
-              <p>
-                Unzip it and serve the folder with any static file server — Python's is already
-                there on most machines:
-              </p>
+              <h3>Install and start the app on your computer</h3>
               <pre className="config-code">
-                <code>{SERVE_APP}</code>
+                <code>{VENV_SETUP}</code>
+              </pre>
+              <pre className="config-code">
+                <code>{START_APP}</code>
               </pre>
               <p>
                 Then open <code>http://localhost:8000/app/</code> — <code>localhost</code> is
@@ -133,18 +120,14 @@ export default function Live() {
             </li>
 
             <li>
-              <h3>Run the agent on the Pi</h3>
-              <p>
-                Needs gpiozero and Python 3.11+, both stock on Raspberry Pi OS, plus the{' '}
-                <code>websockets</code> package:
-              </p>
+              <h3>Install and start the agent on the Pi</h3>
+              <p>Same install, run on the Pi instead — over SSH, or a terminal there:</p>
               <pre className="config-code">
-                <code>{AGENT_INSTALL}</code>
+                <code>{VENV_SETUP}</code>
               </pre>
-              <p>
-                See <code>agent/README.md</code> in the download for a venv-based alternative and
-                more detail.
-              </p>
+              <pre className="config-code">
+                <code>{START_AGENT}</code>
+              </pre>
             </li>
 
             <li>
@@ -156,6 +139,18 @@ export default function Live() {
             </li>
           </ol>
         </details>
+
+        <div className="live-step">
+          <h2>Prefer not to use pip?</h2>
+          <p>
+            A zip of the built app plus the agent script, rebuilt on every deploy — no Python
+            packaging involved, just <code>python3 -m http.server</code> and the agent script
+            directly.
+          </p>
+          <a className="landing-cta landing-cta-download" href="/gpiozero-flow.zip">
+            Download gpiozero-flow.zip ↓
+          </a>
+        </div>
       </main>
 
       <footer className="landing-footer">

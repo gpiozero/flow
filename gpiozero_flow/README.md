@@ -23,11 +23,18 @@ the main repo).
 
 ## Install (recommended)
 
+Raspberry Pi OS (like most current Linux) refuses a bare `pip install` (PEP 668), so
+create a virtualenv first; `--system-site-packages` picks up the apt-installed gpiozero
+and its pin factory (lgpio), so real GPIO access works right away:
+
 ```sh
-pip install gpiozero-flow
+python3 -m venv --system-site-packages ~/.virtualenvs/gpiozero-flow
+~/.virtualenvs/gpiozero-flow/bin/pip install gpiozero-flow
 ```
 
-This installs two commands:
+This installs two commands (as `~/.virtualenvs/gpiozero-flow/bin/gpiozero-flow` and
+`~/.virtualenvs/gpiozero-flow/bin/gpiozero-agent` — add the venv's `bin/` to your `PATH`,
+or use the full path each time):
 
 - **`gpiozero-flow`** — serves the web app over plain HTTP (default port 8000).
 - **`gpiozero-agent`** — the GPIO agent (default port 8765).
