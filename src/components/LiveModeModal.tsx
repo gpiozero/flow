@@ -37,9 +37,10 @@ function loadStored(): StoredAppLink {
  * (see liveModeSupported in pi.ts). If the app is *also* running on the
  * Pi (docs/hosted-deployment.md option 1), that copy is reachable over
  * plain HTTP, where Live mode isn't blocked — so instead of connecting
- * a websocket from here, "Connect to Pi" opens the Pi's own copy of the
+ * a websocket from here, "Switch to Pi" opens the Pi's own copy of the
  * app with the current canvas attached as a `#canvas=` share link, in a
- * new tab. Live mode there proceeds as normal, agent and all.
+ * new tab. That's a page navigation, not a connection — the actual
+ * websocket "Connect to Pi" happens once you're there.
  */
 export function LiveModeModal({ onClose, nodes, edges, canvasName }: Props) {
   const [link, setLink] = useState(loadStored);
@@ -81,8 +82,8 @@ export function LiveModeModal({ onClose, nodes, edges, canvasName }: Props) {
         <p className="modal-text">
           Live mode needs your Pi reachable directly, which this hosted site can't do —
           browsers block that kind of connection from a page served over HTTPS. If the app is
-          also running on the Pi itself, open this canvas there instead — it's plain HTTP, so
-          Live mode works as normal.
+          also running on the Pi itself, switch to that copy with this canvas attached — it's
+          plain HTTP, so you can connect to the Pi from there as normal.
         </p>
         <div className="live-modal-address">
           <input
@@ -108,11 +109,11 @@ export function LiveModeModal({ onClose, nodes, edges, canvasName }: Props) {
         </div>
         {href ? (
           <a className="modal-download" href={href} target="_blank" rel="noopener noreferrer">
-            Connect to Pi ↗
+            Switch to Pi ↗
           </a>
         ) : (
           <button className="modal-download" disabled>
-            Connect to Pi
+            Switch to Pi
           </button>
         )}
         {encoded === SHARE_TOO_LARGE && (
