@@ -65,3 +65,33 @@ header or any token. WebSockets aren't protected by CORS, so once mixed content 
 the way (e.g. the app served from the Pi over HTTP), *any* website the user visits could
 connect to the agent and drive GPIO. Worth adding an origin check or pairing token before
 this goes beyond the LAN-toy stage.
+
+**Not yet implemented — planned design (2026-07-23):** `gpio_agent.py:346` calls
+`serve(agent.handler, args.host, args.port)` with no `origins=`. That parameter (checked
+in `websockets` 16.1.1 — supports a list of exact strings or `re.Pattern`) turns out not
+to be enough on its own: it's a static list, but the two legitimate setups need a
+per-connection comparison against *that request's own* `Host` header, which only the
+`process_request` hook sees. So the plan is a custom check there rather than the built-in
+`origins=` list:
+
+- **Allow** if there's no `Origin` header at all — non-browser clients (the README
+  documents the wire protocol for hand-rolled scripts) have no Origin to check, and a
+  script on the LAN is already a different threat model than a browser tab.
+- **Allow** if `Origin` hostname is `localhost` / `127.0.0.1` / `::1`, any port — running
+  the web app on a laptop to drive a remote Pi's GPIO over the network. Safe because a
+  real remote page can't spoof its own Origin to say `localhost`.
+- **Allow** if `Origin` hostname matches the hostname in the request's own `Host` header,
+  any port — the app and agent bundled on the same Pi (`http://raspberrypi.local:8000`
+  talking to `raspberrypi.local:8765`). Also unspoofable: an attacker's page only gets the
+  browser to dial whatever hostname *it* used to reach the agent, which has to equal the
+  agent's own hostname for this to pass.
+- **Reject** everything else — some other domain that's neither localhost nor the agent's
+  own hostname.
+
+This closes the "a malicious webpage open in another tab silently drives your GPIO"
+vector with no configuration for either legitimate setup. It still doesn't stop a direct
+attacker already on the LAN sending raw WebSocket frames with a forged `Host`/`Origin`
+pair — no browser involved, so nothing here constrains them. That's the same pre-existing
+gap, just narrower: a pairing token would be needed to close it fully, and is worth
+revisiting once this ships as an installable package (`gpiozero-agent` / `gpiozero-flow`
+CLI scripts) rather than something run by hand.
