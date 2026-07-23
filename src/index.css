@@ -43,12 +43,24 @@ body {
   background: #fff;
 }
 
-/* Shown on any plain-http origin (localhost, a Pi's own hosted copy, …) —
- * unlike the hosted https:// site, Live mode here can actually reach real
- * hardware, so the topbar gets a quiet tint as a reminder which copy this is. */
-.topbar-insecure {
-  background: #ebfbee;
-  border-bottom-color: #b2f2bb;
+/* On any plain-http origin (localhost, a Pi's own hosted copy, …), the
+ * topbar reflects what Live mode is actually doing — grey while
+ * simulating, red until a Pi is connected, green once it is — rather
+ * than just a single "this copy could" tint. The hosted https:// site
+ * (where none of this is reachable) stays plain white. */
+.topbar-simulator {
+  background: #f1f3f5;
+  border-bottom-color: #ced4da;
+}
+
+.topbar-disconnected {
+  background: #fff5f5;
+  border-bottom-color: #ffc9c9;
+}
+
+.topbar-connected {
+  background: #b2f2bb;
+  border-bottom-color: #2f9e44;
 }
 
 .topbar h1 {

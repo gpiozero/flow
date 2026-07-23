@@ -269,6 +269,18 @@ function Editor() {
     pi.connect();
   }, [pi.connect]);
 
+  // Topbar colour: white on the hosted https:// site (Live mode can't
+  // reach a Pi from there at all); on any http origin, it reflects what
+  // Live mode is actually doing right now rather than just "could" —
+  // grey while simulating, red until connected, green once it is.
+  const topbarState = !liveModeAvailable
+    ? null
+    : mode === 'simulator'
+      ? 'simulator'
+      : pi.status === 'connected'
+        ? 'connected'
+        : 'disconnected';
+
   const connectOnEnter = (e: ReactKeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && pi.status === 'disconnected') connectToPi();
   };
@@ -1086,7 +1098,7 @@ function Editor() {
   return (
     <FlowContext.Provider value={flowContext}>
       <div className="app">
-        <header className={`topbar ${liveModeAvailable ? 'topbar-insecure' : ''}`}>
+        <header className={`topbar ${topbarState ? `topbar-${topbarState}` : ''}`}>
           <a className="app-brand" href="/">
             <span className="brand-led" aria-hidden="true" />
             <h1>gpiozero flow</h1>
