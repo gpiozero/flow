@@ -43,6 +43,14 @@ body {
   background: #fff;
 }
 
+/* Shown on any plain-http origin (localhost, a Pi's own hosted copy, …) —
+ * unlike the hosted https:// site, Live mode here can actually reach real
+ * hardware, so the topbar gets a quiet tint as a reminder which copy this is. */
+.topbar-insecure {
+  background: #ebfbee;
+  border-bottom-color: #b2f2bb;
+}
+
 .topbar h1 {
   font-size: 16px;
   margin: 0;

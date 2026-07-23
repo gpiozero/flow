@@ -1071,7 +1071,7 @@ function Editor() {
   return (
     <FlowContext.Provider value={flowContext}>
       <div className="app">
-        <header className="topbar">
+        <header className={`topbar ${liveModeAvailable ? 'topbar-insecure' : ''}`}>
           <a className="app-brand" href="/">
             <span className="brand-led" aria-hidden="true" />
             <h1>gpiozero flow</h1>
