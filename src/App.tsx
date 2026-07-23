@@ -252,13 +252,25 @@ function Editor() {
   const changeMode = useCallback(
     (m: 'simulator' | 'live') => {
       setMode(m);
-      if (m === 'simulator' && pi.status !== 'disconnected') pi.disconnect();
+      if (m === 'simulator') {
+        if (pi.status !== 'disconnected') pi.disconnect();
+        setHighlightConnect(false);
+      }
     },
     [pi.status, pi.disconnect],
   );
 
+  // Set when a `&live=1` share link lands us in Live mode already
+  // configured — draws the eye to "Connect to Pi" so that final step
+  // isn't missed, since everything up to it happened automatically.
+  const [highlightConnect, setHighlightConnect] = useState(false);
+  const connectToPi = useCallback(() => {
+    setHighlightConnect(false);
+    pi.connect();
+  }, [pi.connect]);
+
   const connectOnEnter = (e: ReactKeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && pi.status === 'disconnected') pi.connect();
+    if (e.key === 'Enter' && pi.status === 'disconnected') connectToPi();
   };
 
   // While connected to a Pi, device nodes show real hardware values
@@ -766,7 +778,10 @@ function Editor() {
       const name = untitledCanvasName(listCanvases(), imported.name || 'shared canvas');
       saveCanvas(name, imported.nodes, imported.edges);
       applyCanvas(name);
-      if (param.live) setMode('live');
+      if (param.live) {
+        setMode('live');
+        setHighlightConnect(true);
+      }
       showWarning(`Imported shared canvas as "${name}"`);
     });
     // mount-only
@@ -1168,7 +1183,7 @@ function Editor() {
                   ).map((host) => ({ host, port: DEFAULT_PORT })),
                 ]}
                 disabled={pi.status !== 'disconnected'}
-                onConnect={pi.connect}
+                onConnect={connectToPi}
               />
               <span className="pi-port-sep" aria-hidden="true">
                 :
@@ -1185,7 +1200,10 @@ function Editor() {
                 aria-label="Pi agent port"
               />
               {pi.status === 'disconnected' ? (
-                <button className="topbar-script" onClick={pi.connect}>
+                <button
+                  className={`topbar-script ${highlightConnect ? 'topbar-script-highlight' : ''}`}
+                  onClick={connectToPi}
+                >
                   Connect to Pi
                 </button>
               ) : (

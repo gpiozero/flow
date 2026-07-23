@@ -480,6 +480,30 @@ body {
   cursor: default;
 }
 
+/* Draws the eye to "Connect to Pi" right after a &live=1 switch link
+ * has done everything else automatically — see highlightConnect in App.tsx. */
+.topbar-script-highlight {
+  background: #2f9e44;
+  border-color: #2f9e44;
+  color: #fff;
+  animation: connect-pulse 1.4s ease-in-out infinite;
+}
+
+.topbar-script-highlight:hover:not(:disabled) {
+  background: color-mix(in srgb, #2f9e44 85%, #fff);
+  border-color: #2f9e44;
+}
+
+@keyframes connect-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(47, 158, 68, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(47, 158, 68, 0);
+  }
+}
+
 .history-toggle {
   display: flex;
   gap: 4px;
