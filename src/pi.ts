@@ -77,7 +77,7 @@ interface AgentMessage {
 }
 
 /**
- * Live link to the Pi agent (agent/gpio_agent.py). While connected, the
+ * Live link to the Pi agent (gpiozero_flow/gpio_agent.py). While connected, the
  * serialized graph is sent whenever it changes (debounced, and only
  * when the wire payload differs, so drags don't resend), and the
  * agent's 10Hz stream of real device values is collected for display.

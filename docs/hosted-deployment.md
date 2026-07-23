@@ -45,10 +45,13 @@ on today.
 
 ## Ways it *can* work
 
-1. **Serve the app from the Pi itself** (the Node-RED model). A `pip install`/apt package
-   that serves the built `dist/` over plain HTTP on the LAN plus the agent websocket on
-   the same origin. An `http://raspberrypi.local` page may open `ws://` freely. This is
-   the most natural fit given the agent already exists.
+1. **Serve the app from the Pi itself** (the Node-RED model). Shipped as the
+   `gpiozero-flow` PyPI package (`pyproject.toml`, root of this repo): `gpiozero-flow`
+   serves the built `dist/` over plain HTTP on the LAN, `gpiozero-agent` runs the
+   websocket agent, both on the same origin — see `gpiozero_flow/README.md`. An
+   `http://raspberrypi.local` page may open `ws://` freely. This is the most natural fit
+   given the agent already exists, and is also what the "Switch to Pi" link in the
+   Live-mode modal (`src/components/LiveModeModal.tsx`) targets.
 2. **Run the app locally** — `localhost` is a secure context even over plain HTTP, and
    pages on it aren't subject to mixed-content blocking, so the current dev-server
    workflow already works and a downloadable/Electron/PWA-ish distribution would too.
@@ -60,13 +63,13 @@ on today.
 
 ## Security note
 
-The agent (`agent/gpio_agent.py`) accepts any connection without checking the `Origin`
+The agent (`gpiozero_flow/gpio_agent.py`) accepts any connection without checking the `Origin`
 header or any token. WebSockets aren't protected by CORS, so once mixed content isn't in
 the way (e.g. the app served from the Pi over HTTP), *any* website the user visits could
 connect to the agent and drive GPIO. Worth adding an origin check or pairing token before
 this goes beyond the LAN-toy stage.
 
-**Not yet implemented — planned design (2026-07-23):** `gpio_agent.py:346` calls
+**Not yet implemented — planned design (2026-07-23):** `gpiozero_flow/gpio_agent.py:342` calls
 `serve(agent.handler, args.host, args.port)` with no `origins=`. That parameter (checked
 in `websockets` 16.1.1 — supports a list of exact strings or `re.Pattern`) turns out not
 to be enough on its own: it's a static list, but the two legitimate setups need a

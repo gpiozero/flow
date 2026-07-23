@@ -22,6 +22,7 @@ Wire protocol (JSON messages):
     {"type": "values", "values": {node id: value, ...}}  (changed only)
 
 Run on the Pi:  gpio_agent.py [--host 0.0.0.0] [--port 8765]
+(or, pip-installed via the gpiozero-flow package:  gpiozero-agent [--host] [--port])
 """
 
 import argparse
@@ -331,12 +332,7 @@ class Agent:
             await asyncio.sleep(TICK_SECONDS)
 
 
-async def main():
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument('--host', default='0.0.0.0')
-    parser.add_argument('--port', type=int, default=8765)
-    args = parser.parse_args()
-
+async def _amain(args):
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s'
     )
@@ -353,5 +349,13 @@ async def main():
         await asyncio.Future()
 
 
+def main():
+    """Entry point for the `gpiozero-agent` console script."""
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument('--host', default='0.0.0.0')
+    parser.add_argument('--port', type=int, default=8765)
+    asyncio.run(_amain(parser.parse_args()))
+
+
 if __name__ == '__main__':
-    asyncio.run(main())
+    main()

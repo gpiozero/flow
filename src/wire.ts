@@ -3,7 +3,7 @@ import { SPECS, isDevice, requiredPinParams } from './catalog';
 import type { DeviceFlowNode, ParamSpec, ParamValue } from './types';
 
 /**
- * Wire format for the Pi agent (agent/gpio_agent.py): each node as a
+ * Wire format for the Pi agent (gpiozero_flow/gpio_agent.py): each node as a
  * ready-to-instantiate spec, so gpiozero catalog knowledge stays here.
  * Param inclusion mirrors codegen.ts — what runs on the Pi is exactly
  * what the script preview shows.

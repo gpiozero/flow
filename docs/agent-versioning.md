@@ -8,7 +8,7 @@ finds out.
 
 ## Where new-feature support actually lives
 
-The agent (`agent/gpio_agent.py`) resolves tools and devices
+The agent (`gpiozero_flow/gpio_agent.py`) resolves tools and devices
 dynamically — `TOOLS` is built from `vars(gpiozero.tools)` and device
 classes come from `getattr(gpiozero, name)` — so support for a new
 tool or device is almost always a property of the **gpiozero version
@@ -97,7 +97,7 @@ ignored. Only a wire-format change breaks it, which is what the
 
 ## Implementation touchpoints (when picked up)
 
-- `agent/gpio_agent.py`: send `hello` in `handler()` before the
+- `gpiozero_flow/gpio_agent.py`: send `hello` in `handler()` before the
   initial values frame; add an `AGENT_VERSION` and `PROTOCOL`
   constant; lists come from the existing `TOOLS` dict and a sweep of
   `gpiozero` Device subclasses.

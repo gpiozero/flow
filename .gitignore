@@ -1,7 +1,15 @@
 node_modules/
 dist/
+pydist/
 .claude/settings.local.json*
 *.tsbuildinfo
+
+# Python (gpiozero_flow package)
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+.venv/
 
 # raw localStorage exports used as source data for src/demoCanvases.ts —
 # not needed once baked in, kept locally only
